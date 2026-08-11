@@ -7,14 +7,30 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
-  test-and-build:
+  
+  build-backend:
+    name: Backend CI
     runs-on: ubuntu-latest
     steps:
       - name: Checkout do Código
         uses: actions/checkout@v4
 
-      - name: Testar Build (Ambiente Dev)
-        run: docker compose -f docker-compose.dev.yml build
+      - name: Build Backend (Dev)
+        run: docker build -f backend/Dockerfile.dev ./backend
 
-      - name: Testar Build (Ambiente Prod)
-        run: docker compose -f docker-compose.yml build
+      - name: Build Backend (Prod)
+        run: docker build -f backend/Dockerfile ./backend
+
+  
+  build-frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: Build Frontend (Dev)
+        run: docker build -f frontend/Dockerfile.dev ./frontend
+
+      - name: Build Frontend (Prod)
+        run: docker build -f frontend/Dockerfile ./frontend
