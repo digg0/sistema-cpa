@@ -13,10 +13,8 @@ jobs:
       - name: Checkout do Código
         uses: actions/checkout@v4
 
-      - name: Testar Build do Docker (Ambiente Dev)
-        run: |
-          docker compose -f docker-compose.dev.yml build
+      - name: Testar Build (Ambiente Dev)
+        run: docker compose -f docker-compose.dev.yml build
 
-      - name: Testar Build do Docker (Ambiente Prod)
-        run: |
-          docker compose build
+      - name: Testar Build (Ambiente Prod)
+        run: docker compose -f docker-compose.yml build
