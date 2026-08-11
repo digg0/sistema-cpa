@@ -1,0 +1,22 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [ "main", "develop" ]
+  push:
+    branches: [ "main", "develop" ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: Testar Build do Docker (Ambiente Dev)
+        run: |
+          docker compose -f docker-compose.dev.yml build
+
+      - name: Testar Build do Docker (Ambiente Prod)
+        run: |
+          docker compose build
