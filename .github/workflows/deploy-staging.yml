@@ -1,0 +1,24 @@
+name: CD - Deploy Staging
+
+on:
+  push:
+    branches: [ "develop" ]
+
+jobs:
+  deploy:
+    name: Deploy no Servidor de Testes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/ubuntu/app-staging
+            git fetch origin
+            git checkout develop
+            git pull origin develop
+            docker compose down
+            docker compose up -d --build
