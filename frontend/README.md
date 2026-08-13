@@ -1,116 +1,50 @@
-#  Sistema CPA
+# Sistema CPA — IFCE Campus Tauá
 
+Protótipo front-end navegável baseado no projeto enviado pelo usuário e nos requisitos do Sistema de Comissão Própria de Avaliação (CPA).
 
-##  Estrutura
+## O que foi ajustado
 
-```text
-.github/
-└── workflows/          # Pipelines de CI/CD
+- Identidade visual clara, institucional e responsiva.
+- Logo oficial do IFCE Ceará usada como arquivo de imagem, sem reconstrução por SVG.
+- Verde como cor principal; vermelho reservado à marca, erros reais e indicadores negativos.
+- Sidebar clara, com ícones vetoriais e sem cartão de perfil/nome no rodapé.
+- Perfis participantes: Discente, Docente e Técnico.
+- Perfil administrativo: Coordenador CPA.
+- Participantes veem apenas **Minhas Avaliações** e **Avaliações Respondidas**.
+- Próximas avaliações aparecem com data de abertura e são liberadas automaticamente pelo período.
+- Ao responder uma avaliação, ela sai da lista de pendentes e passa para respondidas.
+- Respostas ficam salvas em `localStorage` por perfil para demonstrar o fluxo.
+- Questionários usam somente perguntas objetivas.
+- Dashboard, Campanhas, Questionários, Resultados e Relatórios para o Coordenador CPA.
+- Criação mockada de campanhas, questionários e relatórios.
+- Download demonstrativo real em CSV e PDF gerado no navegador.
+- Layout responsivo com menu lateral no desktop e drawer no mobile.
 
-backend/                # Backend (Python / FastAPI)
-frontend/               # Frontend (React / Vite)
+## Credenciais de demonstração
 
-docker-compose.yml      # Configuração dos servidores
-docker-compose.dev.yml  # Configuração para desenvolvimento local
-```
+| Perfil | Identificador | Senha |
+|---|---|---|
+| Discente | `20261001` | `123456` |
+| Docente | `123.456.789-00` | `123456` |
+| Técnico | `456.789.012-00` | `123456` |
+| Coordenador CPA | `789.012.345-00` | `admin123` |
 
-##  Desenvolvimento Local
+A própria tela de login também oferece o botão **Preencher automaticamente**.
 
-> ⚠️ **Importante:** para rodar o projeto localmente, utilize **sempre** o `docker-compose.dev.yml`.
->
-> **Não utilize o `docker-compose.yml` padrão para desenvolvimento local**, pois ele é destinado aos servidores.
-
-### Primeira execução
-
-```bash
-git clone <LINK-DO-REPOSITORIO>
-cd gestao-horarios
-
-git checkout develop
-git pull origin develop
-
-docker compose -f docker-compose.dev.yml up --build
-```
-
-### Execuções seguintes
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-Para parar:
+## Executar
 
 ```bash
-docker compose -f docker-compose.dev.yml down
+npm install
+npm run dev
 ```
 
-### URLs locais
-
-* Frontend: http://localhost:5173
-* Backend: http://localhost:8000
-
-
----
-
-##  Branches
-
-Não faça commits diretamente em `develop` ou `main`.
-
-Crie uma branch a partir da `develop`:
+Para gerar uma versão de produção:
 
 ```bash
-git checkout develop
-git pull origin develop
-git checkout -b feature/nome-da-feature
+npm run build
+npm run preview
 ```
 
-### Fluxo
+## Observação
 
-Os deploys são realizados automaticamente através do GitHub Actions após o merge nas respectivas branches.
-
-```text
-feature/* ──→ develop ──→ main
-               │           │
-               ▼           ▼
-          🧪 Staging    🚀 Produção
-```
-
-* **`develop`** → ambiente de **Staging/Testes**
-
-  * http://147.15.34.46
-
-* **`main`** → ambiente de **Produção**
-
-  * http://147.15.2.108
-
-
-
----
-
-##  Commits
-
-Utilize o padrão **Conventional Commits**:
-
-```text
-feat: adiciona filtro de turmas
-fix: corrige erro no login
-chore: atualiza configuração do docker
-docs: atualiza readme
-```
-
-### Principais tipos
-
-* `feat` — nova funcionalidade
-* `fix` — correção
-* `chore` — manutenção/configuração
-* `docs` — documentação
-
----
-
-##  Tecnologias
-
-* React / Vite
-* Python / FastAPI
-* Docker / Docker Compose
-* GitHub Actions
-* Oracle Cloud Infrastructure (OCI)
+Este projeto é um protótipo com dados mockados. Autenticação, banco de dados, envio de e-mail e integrações institucionais ainda precisam de backend para uso real em produção.
