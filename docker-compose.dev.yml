@@ -12,6 +12,9 @@ services:
       - ./backend:/app
     environment:
       - ENVIRONMENT=development
+      - DATABASE_URL=sqlite:///./data/cpa.db
+      - SECRET_KEY=dev-secret-change-me-use-32-bytes+
+      - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
   frontend:
     build:
