@@ -1,5 +1,6 @@
-#  Sistema CPA
+#  Sistema
 
+Aplicação para gestão de horários, composta por frontend em React/Vite, backend em Python/FastAPI e PostgreSQL.
 
 ##  Estrutura
 
