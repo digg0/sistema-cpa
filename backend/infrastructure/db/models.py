@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -126,3 +126,21 @@ class SemesterMetricModel(Base):
     semestre: Mapped[str] = mapped_column(String(16), primary_key=True)
     participacao: Mapped[float] = mapped_column(nullable=False)
     satisfacao: Mapped[float] = mapped_column(nullable=False)
+
+
+class AuditLogModel(Base):
+    __tablename__ = "audit_logs"
+    __table_args__ = (
+        Index("ix_audit_logs_recurso_recurso_id", "recurso", "recurso_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    # Sem FK intencionalmente: o histórico deve sobreviver à remoção do usuário.
+    ator_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    ator_perfil: Mapped[str] = mapped_column(String(32), nullable=False)
+    acao: Mapped[str] = mapped_column(String(64), nullable=False)
+    recurso: Mapped[str] = mapped_column(String(100), nullable=False)
+    recurso_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    resultado: Mapped[str] = mapped_column(String(32), nullable=False)
+    detalhes: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
