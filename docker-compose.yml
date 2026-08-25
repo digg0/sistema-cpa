@@ -14,7 +14,7 @@ services:
     environment:
       - ENVIRONMENT=production
       - DATABASE_URL=sqlite:///./data/cpa.db
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - SECRET_KEY=${SECRET_KEY}
       - CORS_ORIGINS=http://localhost,http://127.0.0.1
 
   frontend:

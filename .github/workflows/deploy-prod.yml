@@ -20,5 +20,10 @@ jobs:
             git fetch origin
             git checkout main
             git pull origin main
+            
+            
+            echo "ENVIRONMENT=production" > .env
+            echo "SECRET_KEY=${{ secrets.SECRET_KEY_PROD }}" >> .env
+            
             docker compose down
             docker compose up -d --build
