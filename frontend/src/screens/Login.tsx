@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { loginWithApi, ApiError } from '../auth/api'
+import type { AuthSession } from '../auth/session'
 import IfceLogo from '../components/IfceLogo'
 import { Icons } from '../components/Icons'
 import { GREEN, GREEN_D } from '../components/ui'
-import { credenciais, type Perfil } from '../data/mock'
+import type { Perfil } from '../data/mock'
 
 const perfis: Perfil[] = ['Discente', 'Docente', 'Técnico', 'Coordenador CPA']
 
@@ -13,15 +15,17 @@ const meta: Record<Perfil, { descricao: string; icon: React.ReactNode; accent: s
   'Coordenador CPA': { descricao: 'Gerenciar campanhas, resultados e relatórios', icon: Icons.shield(), accent: '#0F766E' },
 }
 
-export default function Login({ onLogin }: { onLogin: (perfil: Perfil, nome: string) => void }) {
+function labelIdentificador(perfil: Perfil): string {
+  return perfil === 'Discente' ? 'Matrícula' : 'CPF'
+}
+
+export default function Login({ onLogin }: { onLogin: (session: AuthSession) => void }) {
   const [perfil, setPerfil] = useState<Perfil>('Discente')
   const [identificador, setIdentificador] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [erro, setErro] = useState('')
   const [loading, setLoading] = useState(false)
-
-  const cred = credenciais[perfil]
 
   function trocarPerfil(p: Perfil) {
     setPerfil(p)
@@ -30,18 +34,23 @@ export default function Login({ onLogin }: { onLogin: (perfil: Perfil, nome: str
     setErro('')
   }
 
-  function entrar(e: React.FormEvent) {
+  async function entrar(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
     setLoading(true)
-    window.setTimeout(() => {
-      setLoading(false)
-      if (identificador.trim() === cred.id && senha === cred.senha) {
-        onLogin(perfil, cred.nome)
+
+    try {
+      const session = await loginWithApi(identificador, senha, perfil)
+      onLogin(session)
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErro(error.message)
       } else {
-        setErro('Credenciais inválidas. Confira os dados e tente novamente.')
+        setErro('Não foi possível realizar o login. Tente novamente.')
       }
-    }, 450)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -65,8 +74,8 @@ export default function Login({ onLogin }: { onLogin: (perfil: Perfil, nome: str
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white">{Icons.lock()}</div>
             <div>
-              <p className="text-sm font-semibold">Respostas anônimas</p>
-              <p className="text-xs text-emerald-50/65 mt-1 leading-5">As respostas são utilizadas apenas de forma consolidada nos relatórios da CPA.</p>
+              <p className="text-sm font-semibold">Acesso seguro</p>
+              <p className="text-xs text-emerald-50/65 mt-1 leading-5">Sua sessão é protegida por autenticação e expira automaticamente por segurança.</p>
             </div>
           </div>
         </div>
@@ -84,7 +93,7 @@ export default function Login({ onLogin }: { onLogin: (perfil: Perfil, nome: str
             <div className="px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100">
               <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: GREEN }}>Sistema CPA</p>
               <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-2">Acessar o sistema</h2>
-              <p className="text-sm text-slate-500 mt-1">Escolha seu perfil e use as credenciais de demonstração.</p>
+              <p className="text-sm text-slate-500 mt-1">Selecione seu perfil e informe suas credenciais institucionais.</p>
             </div>
 
             <div className="px-6 sm:px-8 py-6">
@@ -116,11 +125,11 @@ export default function Login({ onLogin }: { onLogin: (perfil: Perfil, nome: str
 
               <form onSubmit={entrar} className="mt-6 grid gap-4">
                 <div>
-                  <label htmlFor="identificador" className="block text-sm font-semibold text-slate-700 mb-1.5">{cred.rotuloId}</label>
+                  <label htmlFor="identificador" className="block text-sm font-semibold text-slate-700 mb-1.5">{labelIdentificador(perfil)}</label>
                   <div className="relative">
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">{perfil === 'Discente' ? Icons.student({ width: 18, height: 18 }) : Icons.user({ width: 18, height: 18 })}</span>
                     <input id="identificador" autoComplete="username" required value={identificador} onChange={e => setIdentificador(e.target.value)}
-                      placeholder={perfil === 'Discente' ? 'Ex.: 20261001' : '000.000.000-00'}
+                      placeholder={perfil === 'Discente' ? 'Digite sua matrícula' : '000.000.000-00'}
                       className="w-full rounded-xl border border-slate-300 bg-white pl-11 pr-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-green-600 focus:ring-4 focus:ring-green-600/10" />
                   </div>
                 </div>
@@ -152,22 +161,9 @@ export default function Login({ onLogin }: { onLogin: (perfil: Perfil, nome: str
                   {loading ? 'Verificando acesso…' : 'Entrar'}
                 </button>
               </form>
-
-              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-700">Credenciais de demonstração</p>
-                    <p className="text-xs text-slate-500 mt-1"><span className="font-mono">{cred.id}</span> · <span className="font-mono">{cred.senha}</span></p>
-                  </div>
-                  <button type="button" onClick={() => { setIdentificador(cred.id); setSenha(cred.senha); setErro('') }}
-                    className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                    Preencher automaticamente
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
-          <p className="text-center text-xs text-slate-400 mt-5">Protótipo navegável · dados de demonstração · Ciclo 2026.2</p>
+          <p className="text-center text-xs text-slate-400 mt-5">Sistema CPA · IFCE Campus Tauá · Ciclo 2026.2</p>
         </div>
       </main>
     </div>
