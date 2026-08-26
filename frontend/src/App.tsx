@@ -1,4 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import AuthGuard from './auth/AuthGuard'
+import { ApiError, getCurrentUser } from './auth/api'
+import { clearSession, isSessionValid, loadSession, saveSession, type AuthSession } from './auth/session'
 import IfceLogo from './components/IfceLogo'
 import { Icons } from './components/Icons'
 import { GREEN, GREEN_L } from './components/ui'
@@ -10,7 +13,7 @@ import Resultados from './screens/Resultados'
 import Relatorios from './screens/Relatorios'
 import MinhasAvaliacoes from './screens/MinhasAvaliacoes'
 import AvaliacoesRespondidas from './screens/AvaliacoesRespondidas'
-import { avaliacoesPorPerfil, campanhasBase, questionariosBase, relatoriosBase, type Campanha, type Perfil, type PerfilParticipante, type QuestionarioAdmin, type Relatorio } from './data/mock'
+import { avaliacoesPorPerfil, campanhasBase, questionariosBase, relatoriosBase, type Campanha, type PerfilParticipante, type QuestionarioAdmin, type Relatorio } from './data/mock'
 import { statusPorPeriodo } from './utils/date'
 
 type NavItem = { id: string; label: string; icon: ReactNode }
@@ -45,8 +48,19 @@ function Navigation({ items, active, onChange, badge, onLogout, mobile = false, 
   )
 }
 
+function SessionCheck() {
+  return (
+    <div className="min-h-screen bg-[#F5F7F5] flex items-center justify-center px-6">
+      <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-sm text-slate-500 shadow-sm">
+        Validando sessão…
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
-  const [session,setSession]=useState<{perfil:Perfil;nome:string}|null>(null)
+  const [session,setSession]=useState<AuthSession|null>(()=>loadSession())
+  const [checkingSession,setCheckingSession]=useState(true)
   const [active,setActive]=useState('dashboard')
   const [mobileMenu,setMobileMenu]=useState(false)
   const [campanhas,setCampanhas]=useState<Campanha[]>(campanhasBase)
@@ -55,14 +69,57 @@ export default function App() {
   const [abrirNovaCampanha,setAbrirNovaCampanha]=useState(false)
   const [respondidas,setRespondidas]=useState<Record<string,string>>({})
 
+  const logout=useCallback(()=>{
+    clearSession()
+    setSession(null)
+    setActive('dashboard')
+    setMobileMenu(false)
+  },[])
+
+  useEffect(()=>{
+    const current=session
+    if(!current || !isSessionValid(current)){
+      if(current) logout()
+      setCheckingSession(false)
+      return
+    }
+
+    const controller=new AbortController()
+    getCurrentUser(current.accessToken,controller.signal)
+      .then(user=>{
+        if(user.perfil!==current.perfil){
+          logout()
+          return
+        }
+        if(user.nome!==current.nome){
+          const refreshed={...current,nome:user.nome}
+          saveSession(refreshed)
+          setSession(refreshed)
+        }
+      })
+      .catch(error=>{
+        if(error instanceof DOMException && error.name==='AbortError') return
+        if(error instanceof ApiError && (error.status===401 || error.status===403)) logout()
+      })
+      .finally(()=>setCheckingSession(false))
+
+    return ()=>controller.abort()
+    // Esta validação é executada apenas ao restaurar a sessão da aba.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[])
+
   useEffect(()=>{
     if(!session || session.perfil==='Coordenador CPA'){setRespondidas({});return}
     const key=`cpa-demo-respostas-${session.perfil}`
     try{ setRespondidas(JSON.parse(localStorage.getItem(key)||'{}')) }catch{ setRespondidas({}) }
   },[session])
 
-  function login(perfil:Perfil,nome:string){setSession({perfil,nome});setActive(perfil==='Coordenador CPA'?'dashboard':'minhas')}
-  function logout(){setSession(null);setActive('dashboard');setMobileMenu(false)}
+  function login(nextSession:AuthSession){
+    saveSession(nextSession)
+    setSession(nextSession)
+    setCheckingSession(false)
+    setActive(nextSession.perfil==='Coordenador CPA'?'dashboard':'minhas')
+  }
   function responder(id:string){
     if(!session || session.perfil==='Coordenador CPA') return
     const next={...respondidas,[id]:new Date().toLocaleDateString('pt-BR')}
@@ -75,6 +132,7 @@ export default function App() {
   function duplicarQuestionario(q:QuestionarioAdmin){setQuestionarios(v=>[{...q,id:`Q-${Date.now()}`,nome:`${q.nome} — cópia`,versao:q.versao+1,status:'Rascunho',usos:0,atualizado:new Date().toLocaleDateString('pt-BR')},...v])}
   function gerarRelatorio(r:Relatorio){setRelatorios(v=>[r,...v])}
 
+  if(checkingSession) return <SessionCheck/>
   if(!session) return <Login onLogin={login}/>
 
   const admin=session.perfil==='Coordenador CPA'
@@ -94,11 +152,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F7F5]">
-      <aside className="desktop-sidebar fixed inset-y-0 left-0 w-[250px] border-r border-slate-200 z-40"><Navigation items={items} active={active} onChange={setActive} badge={pendentes} onLogout={logout}/></aside>
-      <header className="mobile-header hidden sticky top-0 z-30 h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4"><button onClick={()=>setMobileMenu(true)} aria-label="Abrir menu" className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">{Icons.menu()}</button><div className="flex items-center gap-2"><IfceLogo className="w-12 h-10"/><div><p className="text-xs font-bold" style={{color:GREEN}}>Sistema CPA</p><p className="text-[10px] text-slate-400">Campus Tauá</p></div></div><span className="w-10"/></header>
-      {mobileMenu&&<div className="fixed inset-0 z-[70] lg:hidden"><button aria-label="Fechar menu" className="absolute inset-0 bg-slate-950/35" onClick={()=>setMobileMenu(false)}/><aside className="relative w-[280px] h-full shadow-2xl"><Navigation items={items} active={active} onChange={setActive} badge={pendentes} onLogout={logout} mobile onClose={()=>setMobileMenu(false)}/></aside></div>}
-      <main className="page-shell min-h-screen px-7 py-7 lg:ml-[250px] xl:px-9">{screen}</main>
-    </div>
+    <AuthGuard session={session} onExpired={logout}>
+      <div className="min-h-screen bg-[#F5F7F5]">
+        <aside className="desktop-sidebar fixed inset-y-0 left-0 w-[250px] border-r border-slate-200 z-40"><Navigation items={items} active={active} onChange={setActive} badge={pendentes} onLogout={logout}/></aside>
+        <header className="mobile-header hidden sticky top-0 z-30 h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4"><button onClick={()=>setMobileMenu(true)} aria-label="Abrir menu" className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">{Icons.menu()}</button><div className="flex items-center gap-2"><IfceLogo className="w-12 h-10"/><div><p className="text-xs font-bold" style={{color:GREEN}}>Sistema CPA</p><p className="text-[10px] text-slate-400">Campus Tauá</p></div></div><span className="w-10"/></header>
+        {mobileMenu&&<div className="fixed inset-0 z-[70] lg:hidden"><button aria-label="Fechar menu" className="absolute inset-0 bg-slate-950/35" onClick={()=>setMobileMenu(false)}/><aside className="relative w-[280px] h-full shadow-2xl"><Navigation items={items} active={active} onChange={setActive} badge={pendentes} onLogout={logout} mobile onClose={()=>setMobileMenu(false)}/></aside></div>}
+        <main className="page-shell min-h-screen px-7 py-7 lg:ml-[250px] xl:px-9">{screen}</main>
+      </div>
+    </AuthGuard>
   )
 }
