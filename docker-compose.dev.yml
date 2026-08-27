@@ -1,6 +1,23 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: postgres_dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=cpa
+      - POSTGRES_PASSWORD=dev-postgres-change-me
+      - POSTGRES_DB=cpa_dev
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cpa -d cpa_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -12,9 +29,12 @@ services:
       - ./backend:/app
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=sqlite:///./data/cpa.db
+      - DATABASE_URL=postgresql+psycopg2://cpa:dev-postgres-change-me@db:5432/cpa_dev
       - SECRET_KEY=dev-secret-change-me-use-32-bytes+
       - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
     build:
@@ -30,3 +50,6 @@ services:
       - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
+
+volumes:
+  pgdata_dev:

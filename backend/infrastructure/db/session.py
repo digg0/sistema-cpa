@@ -34,7 +34,7 @@ def get_engine(url: str | None = None) -> Engine:
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
     connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-    engine = create_engine(database_url, connect_args=connect_args, future=True)
+    engine = create_engine(database_url, connect_args=connect_args, future=True, pool_pre_ping=True)
     if database_url.startswith("sqlite"):
         _configure_sqlite(engine)
     if url is None:
