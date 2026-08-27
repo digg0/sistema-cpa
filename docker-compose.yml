@@ -28,7 +28,7 @@ services:
     environment:
       - ENVIRONMENT=production
       - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-cpa}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD (sem valor padrão em produção)}@db:5432/${POSTGRES_DB:-cpa}
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - SECRET_KEY=${SECRET_KEY}
       - CORS_ORIGINS=http://localhost,http://127.0.0.1
     depends_on:
       db:
