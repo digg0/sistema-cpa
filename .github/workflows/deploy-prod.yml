@@ -24,6 +24,7 @@ jobs:
             
             echo "ENVIRONMENT=production" > .env
             echo "SECRET_KEY=${{ secrets.SECRET_KEY_PROD }}" >> .env
-            
+            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_PROD }}" >> .env
+
             docker compose down
             docker compose up -d --build

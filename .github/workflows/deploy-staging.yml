@@ -24,6 +24,7 @@ jobs:
             
             echo "ENVIRONMENT=staging" > .env
             echo "SECRET_KEY=${{ secrets.SECRET_KEY_STAGING }}" >> .env
-            
+            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_STAGING }}" >> .env
+
             docker compose down
             docker compose up -d --build
