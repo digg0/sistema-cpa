@@ -4,6 +4,7 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.audit import AuditRecorder
 from app.core.security import BcryptPasswordHasher, decode_access_token
 from infrastructure.db.session import get_session_factory
 from modules.analytics.application.use_cases import (
@@ -17,6 +18,8 @@ from modules.analytics.infrastructure.repository import (
     SqlAlchemyReportRepository,
     SqlAlchemySemesterMetricRepository,
 )
+from modules.audit.application.use_cases import ListAuditLogs, RecordAuditLog
+from modules.audit.infrastructure.repository import SqlAlchemyAuditLogRepository
 from modules.campaigns.application.use_cases import CreateCampaign, GetCampaign, ListCampaigns
 from modules.campaigns.infrastructure.repository import SqlAlchemyCampaignRepository
 from modules.identity.application.use_cases import AuthenticateUser
@@ -157,3 +160,22 @@ def get_list_reports(session: Session = Depends(get_db)):
 
 def get_get_report(session: Session = Depends(get_db)):
     return GetReport(SqlAlchemyReportRepository(session))
+
+
+def get_audit_recorder() -> AuditRecorder:
+    return AuditRecorder()
+
+
+def get_record_audit_log(session: Session = Depends(get_db)):
+    """Registra auditoria na mesma sessão/transação da requisição em curso.
+
+    Use quando a ação já grava algo nessa sessão (criar/duplicar questionário,
+    criar campanha, gerar/baixar relatório) — o registro de auditoria confirma
+    junto com a ação, na mesma transação. Para eventos sem escrita associada
+    na sessão principal (login), use `get_audit_recorder` (`AuditRecorder`).
+    """
+    return RecordAuditLog(SqlAlchemyAuditLogRepository(session))
+
+
+def get_list_audit_logs(session: Session = Depends(get_db)):
+    return ListAuditLogs(SqlAlchemyAuditLogRepository(session))

@@ -7,6 +7,7 @@ from app.api.v1.deps import (
     get_duplicate_questionnaire,
     get_get_questionnaire,
     get_list_questionnaires,
+    get_record_audit_log,
     require_coordenador,
 )
 from app.api.v1.presenters import questionnaire_detail, questionnaire_summary
@@ -15,6 +16,7 @@ from app.api.v1.schemas.questionarios import (
     QuestionnaireDetailOut,
     QuestionnaireSummaryOut,
 )
+from modules.audit.application.use_cases import RecordAuditLog
 from modules.identity.domain.entities import User
 from modules.questionnaires.application.use_cases import (
     CreateQuestionnaire,
@@ -40,6 +42,7 @@ def create_questionario(
     payload: CreateQuestionnaireIn,
     user: User = Depends(require_coordenador),
     use_case: CreateQuestionnaire = Depends(get_create_questionnaire),
+    audit: RecordAuditLog = Depends(get_record_audit_log),
 ) -> QuestionnaireDetailOut:
     drafts = (
         [
@@ -56,6 +59,15 @@ def create_questionario(
         status=payload.status,
         perguntas=drafts,
         quantidade_perguntas=payload.quantidade_perguntas,
+    )
+    audit.execute(
+        ator_id=user.id,
+        ator_perfil=user.perfil.value,
+        acao="criar",
+        recurso="questionario",
+        recurso_id=str(created.id),
+        resultado="sucesso",
+        detalhes={"nome": created.nome, "categoria": created.categoria, "status": created.status.value},
     )
     return questionnaire_detail(created)
 
@@ -74,5 +86,16 @@ def duplicate_questionario(
     questionnaire_id: UUID,
     user: User = Depends(require_coordenador),
     use_case: DuplicateQuestionnaire = Depends(get_duplicate_questionnaire),
+    audit: RecordAuditLog = Depends(get_record_audit_log),
 ) -> QuestionnaireDetailOut:
-    return questionnaire_detail(use_case.execute(questionnaire_id, user))
+    created = use_case.execute(questionnaire_id, user)
+    audit.execute(
+        ator_id=user.id,
+        ator_perfil=user.perfil.value,
+        acao="duplicar",
+        recurso="questionario",
+        recurso_id=str(created.id),
+        resultado="sucesso",
+        detalhes={"original_id": str(questionnaire_id)},
+    )
+    return questionnaire_detail(created)
