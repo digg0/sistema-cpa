@@ -46,7 +46,7 @@ def create_questionario(
 ) -> QuestionnaireDetailOut:
     drafts = (
         [
-            QuestionDraft(item.texto, item.tipo, item.obrigatoria, item.opcoes, item.dimensao)
+            QuestionDraft(item.texto, item.tipo, item.obrigatoria, item.opcoes, item.dimensao, item.perfis_alvo)
             for item in payload.perguntas
         ]
         if payload.perguntas

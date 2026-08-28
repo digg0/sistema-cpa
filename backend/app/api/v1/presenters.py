@@ -20,6 +20,7 @@ def question_out(question: Question) -> QuestionOut:
         opcoes=question.opcoes,
         dimensao=question.dimensao,
         ordem=question.ordem,
+        perfis_alvo=list(question.perfis_alvo),
     )
 
 
@@ -67,7 +68,11 @@ def campaign_out(item: Campaign) -> CampaignOut:
 def avaliacao_out(item: dict, user: User) -> AvaliacaoOut:
     campaign: Campaign = item["campaign"]
     questionnaire: Questionnaire | None = item["questionnaire"]
-    perguntas = [question_out(question) for question in (questionnaire.perguntas if questionnaire else [])]
+    perguntas = [
+        question_out(question)
+        for question in (questionnaire.perguntas if questionnaire else [])
+        if question.visivel_para(user.perfil)
+    ]
     return AvaliacaoOut(
         id=campaign.id,
         titulo=campaign.nome,

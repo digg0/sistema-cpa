@@ -1,5 +1,6 @@
 from datetime import date, datetime
 
+from shared.enums import PERFIS_ALVO_TODOS
 from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
@@ -50,6 +51,8 @@ class QuestionModel(Base):
     opcoes: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     dimensao: Mapped[str | None] = mapped_column(String(120), nullable=True)
     ordem: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # SEM RESPONDENTE no relatório CPA: o perfil ausente não entra nesta lista.
+    perfis_alvo: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=lambda: list(PERFIS_ALVO_TODOS))
 
     questionnaire: Mapped[QuestionnaireModel] = relationship(back_populates="questions")
 
