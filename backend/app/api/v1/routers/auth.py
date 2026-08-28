@@ -1,17 +1,43 @@
 from fastapi import APIRouter, Depends
 
-from app.api.v1.deps import get_authenticate_user, get_current_user
+from app.api.v1.deps import get_audit_recorder, get_authenticate_user, get_current_user
 from app.api.v1.schemas.auth import LoginIn, LoginOut, UserOut
+from app.core.audit import AuditRecorder
 from app.core.security import create_access_token
 from modules.identity.application.use_cases import AuthenticateUser
 from modules.identity.domain.entities import User
+from modules.identity.domain.services import normalize_identificador
+from shared.exceptions import AuthenticationError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=LoginOut)
-def login(payload: LoginIn, use_case: AuthenticateUser = Depends(get_authenticate_user)) -> LoginOut:
-    user = use_case.execute(payload.identificador, payload.senha, payload.perfil)
+def login(
+    payload: LoginIn,
+    use_case: AuthenticateUser = Depends(get_authenticate_user),
+    audit: AuditRecorder = Depends(get_audit_recorder),
+) -> LoginOut:
+    try:
+        user = use_case.execute(payload.identificador, payload.senha, payload.perfil)
+    except AuthenticationError:
+        audit.record(
+            ator_id=None,
+            ator_perfil=payload.perfil.value,
+            acao="login",
+            recurso="sessao",
+            recurso_id=normalize_identificador(payload.identificador),
+            resultado="falha",
+        )
+        raise
+    audit.record(
+        ator_id=user.id,
+        ator_perfil=user.perfil.value,
+        acao="login",
+        recurso="sessao",
+        recurso_id=str(user.id),
+        resultado="sucesso",
+    )
     return LoginOut(access_token=create_access_token(user), nome=user.nome, perfil=user.perfil)
 
 

@@ -9,6 +9,7 @@ from modules.audit.domain.services import (
     validate_required_label,
     validate_timestamp,
 )
+from shared.exceptions import ValidationError
 from shared.ids import new_id
 
 
@@ -40,3 +41,39 @@ class RecordAuditLog:
             detalhes=validate_details(detalhes),
         )
         return self._audit_logs.add(audit_log)
+
+
+class ListAuditLogs:
+    """Consulta o log de auditoria com filtro por período e tipo de ação.
+
+    Uso exclusivo do Coordenador CPA (ver `require_coordenador`) — este caso de
+    uso apenas lê `audit_logs`, que nunca contém conteúdo de resposta.
+    """
+
+    def __init__(self, audit_logs: AuditLogRepository):
+        self._audit_logs = audit_logs
+
+    def execute(
+        self,
+        *,
+        inicio: datetime | None = None,
+        fim: datetime | None = None,
+        acao: str | None = None,
+        recurso: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditLog]:
+        if inicio is not None:
+            inicio = validate_timestamp(inicio)
+        if fim is not None:
+            fim = validate_timestamp(fim)
+        if inicio is not None and fim is not None and inicio > fim:
+            raise ValidationError("A data de início não pode ser posterior à data de fim")
+        return self._audit_logs.list_filtered(
+            inicio=inicio,
+            fim=fim,
+            acao=acao,
+            recurso=recurso,
+            limit=limit,
+            offset=offset,
+        )

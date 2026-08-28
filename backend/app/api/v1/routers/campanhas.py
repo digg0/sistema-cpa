@@ -7,12 +7,14 @@ from app.api.v1.deps import (
     get_create_campaign,
     get_get_campaign,
     get_list_campaigns,
+    get_record_audit_log,
     require_coordenador,
 )
 from app.api.v1.presenters import campaign_out
 from app.api.v1.schemas.campanhas import CampaignOut, CreateCampaignIn
 from app.api.v1.schemas.dashboard import ResultsOut
 from modules.analytics.application.use_cases import GetCampaignResults
+from modules.audit.application.use_cases import RecordAuditLog
 from modules.campaigns.application.use_cases import CreateCampaign, GetCampaign, ListCampaigns
 from modules.identity.domain.entities import User
 
@@ -30,8 +32,9 @@ def list_campanhas(
 @router.post("", response_model=CampaignOut, status_code=status.HTTP_201_CREATED)
 def create_campanha(
     payload: CreateCampaignIn,
-    _: User = Depends(require_coordenador),
+    user: User = Depends(require_coordenador),
     use_case: CreateCampaign = Depends(get_create_campaign),
+    audit: RecordAuditLog = Depends(get_record_audit_log),
 ) -> CampaignOut:
     created = use_case.execute(
         nome=payload.nome,
@@ -41,6 +44,18 @@ def create_campanha(
         questionnaire_id=payload.questionario_id,
         inicio=payload.inicio,
         fim=payload.fim,
+    )
+    audit.execute(
+        ator_id=user.id,
+        ator_perfil=user.perfil.value,
+        acao="criar",
+        recurso="campanha",
+        recurso_id=str(created.id),
+        resultado="sucesso",
+        detalhes={
+            "questionario_id": str(payload.questionario_id),
+            "publico": [perfil.value for perfil in payload.publico],
+        },
     )
     return campaign_out(created)
 

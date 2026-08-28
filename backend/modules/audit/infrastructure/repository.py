@@ -1,4 +1,4 @@
-from datetime import timezone
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -58,4 +58,28 @@ class SqlAlchemyAuditLogRepository:
             .order_by(AuditLogModel.timestamp.desc())
             .limit(safe_limit)
         ).all()
+        return [self._to_entity(row) for row in rows]
+
+    def list_filtered(
+        self,
+        *,
+        inicio: datetime | None = None,
+        fim: datetime | None = None,
+        acao: str | None = None,
+        recurso: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditLog]:
+        safe_limit = max(1, min(limit, 500))
+        safe_offset = max(0, offset)
+        stmt = select(AuditLogModel).order_by(AuditLogModel.timestamp.desc())
+        if inicio is not None:
+            stmt = stmt.where(AuditLogModel.timestamp >= inicio)
+        if fim is not None:
+            stmt = stmt.where(AuditLogModel.timestamp <= fim)
+        if acao is not None:
+            stmt = stmt.where(AuditLogModel.acao == acao)
+        if recurso is not None:
+            stmt = stmt.where(AuditLogModel.recurso == recurso)
+        rows = self._session.scalars(stmt.limit(safe_limit).offset(safe_offset)).all()
         return [self._to_entity(row) for row in rows]

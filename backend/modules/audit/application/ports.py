@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -10,3 +11,14 @@ class AuditLogRepository(Protocol):
     def get(self, audit_log_id: UUID) -> AuditLog | None: ...
 
     def list_recent(self, limit: int = 100) -> list[AuditLog]: ...
+
+    def list_filtered(
+        self,
+        *,
+        inicio: datetime | None = None,
+        fim: datetime | None = None,
+        acao: str | None = None,
+        recurso: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditLog]: ...
