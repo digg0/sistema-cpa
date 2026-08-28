@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from infrastructure.db.models import CampaignModel, QuestionModel, QuestionnaireModel, SubmissionModel
 from modules.questionnaires.domain.entities import Question, Questionnaire
-from shared.enums import StatusQuestionario, TipoPergunta
+from shared.enums import PERFIS_ALVO_TODOS, StatusQuestionario, TipoPergunta
 from shared.ids import as_uuid
 
 
@@ -28,6 +28,7 @@ def _to_entity(row: QuestionnaireModel, usos: int, locked: bool) -> Questionnair
                 opcoes=list(question.opcoes) if question.opcoes else None,
                 dimensao=question.dimensao,
                 ordem=question.ordem,
+                perfis_alvo=list(question.perfis_alvo or PERFIS_ALVO_TODOS),
             )
             for question in row.questions
         ],
@@ -96,6 +97,7 @@ class SqlAlchemyQuestionnaireRepository:
                         opcoes=question.opcoes,
                         dimensao=question.dimensao,
                         ordem=question.ordem,
+                        perfis_alvo=list(question.perfis_alvo or PERFIS_ALVO_TODOS),
                     )
                     for question in questionnaire.perguntas
                 ],
