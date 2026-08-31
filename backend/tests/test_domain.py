@@ -4,7 +4,11 @@ import pytest
 
 from modules.campaigns.domain.services import assert_can_answer, assert_results_visible, status_por_periodo
 from modules.questionnaires.domain.entities import Question, Questionnaire
-from modules.questionnaires.domain.services import assert_can_mutate, assert_objective_question
+from modules.questionnaires.domain.services import (
+    assert_can_mutate,
+    assert_objective_question,
+    assert_valid_perfis_alvo,
+)
 from modules.responses.domain.entities import Answer
 from modules.responses.domain.services import assert_not_already_participated, validate_answers
 from shared.enums import Perfil, StatusCampanha, StatusQuestionario, TipoPergunta
@@ -55,6 +59,25 @@ def test_rejeita_pergunta_nao_objetiva():
     question.tipo = "discursiva"  # type: ignore[assignment]
     with pytest.raises(ValidationError):
         assert_objective_question(question)
+
+
+def test_rejeita_perfis_alvo_vazio():
+    question = Question(id=new_id(), texto="Domínio?", tipo=TipoPergunta.LIKERT, perfis_alvo=[])
+    with pytest.raises(ValidationError):
+        assert_valid_perfis_alvo(question)
+
+
+def test_rejeita_perfis_alvo_invalido():
+    question = Question(
+        id=new_id(), texto="Domínio?", tipo=TipoPergunta.LIKERT, perfis_alvo=["docente", "estudante"]
+    )
+    with pytest.raises(ValidationError):
+        assert_valid_perfis_alvo(question)
+
+
+def test_aceita_perfis_alvo_valido():
+    question = Question(id=new_id(), texto="Domínio?", tipo=TipoPergunta.LIKERT, perfis_alvo=["docente"])
+    assert_valid_perfis_alvo(question)
 
 
 def test_uma_participacao_por_campanha():
