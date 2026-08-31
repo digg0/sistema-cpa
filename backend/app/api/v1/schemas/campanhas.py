@@ -3,14 +3,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from shared.enums import Perfil, StatusCampanha
+from shared.enums import PARTICIPANTES, Perfil, StatusCampanha
 
 
 class CreateCampaignIn(BaseModel):
     nome: str
-    tipo: str
+    tipo: str = "Geral"
     descricao: str = ""
-    publico: list[Perfil] = Field(min_length=1)
+    publico: list[Perfil] = Field(default_factory=lambda: list(PARTICIPANTES), min_length=1)
     questionario_id: UUID
     inicio: date
     fim: date
