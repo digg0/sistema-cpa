@@ -18,7 +18,11 @@ from modules.analytics.infrastructure.repository import (
     SqlAlchemyReportRepository,
     SqlAlchemySemesterMetricRepository,
 )
-from modules.audit.application.use_cases import ListAuditLogs, RecordAuditLog
+from modules.audit.application.use_cases import (
+    CheckLoginRateLimit,
+    ListAuditLogs,
+    RecordAuditLog,
+)
 from modules.audit.infrastructure.repository import SqlAlchemyAuditLogRepository
 from modules.campaigns.application.use_cases import CreateCampaign, GetCampaign, ListCampaigns
 from modules.campaigns.infrastructure.repository import SqlAlchemyCampaignRepository
@@ -164,6 +168,10 @@ def get_get_report(session: Session = Depends(get_db)):
 
 def get_audit_recorder() -> AuditRecorder:
     return AuditRecorder()
+
+
+def get_check_login_rate_limit(session: Session = Depends(get_db)):
+    return CheckLoginRateLimit(SqlAlchemyAuditLogRepository(session))
 
 
 def get_record_audit_log(session: Session = Depends(get_db)):

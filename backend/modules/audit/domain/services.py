@@ -1,7 +1,8 @@
 import json
 import math
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from shared.exceptions import ValidationError
 
@@ -10,6 +11,10 @@ MAX_DETAILS_DEPTH = 3
 MAX_DETAILS_KEYS = 30
 MAX_LIST_ITEMS = 20
 MAX_STRING_LENGTH = 500
+
+LOGIN_ATTEMPT_LIMIT = 5
+LOGIN_ATTEMPT_WINDOW = timedelta(minutes=15)
+LOGIN_BLOCK_DURATION = timedelta(minutes=15)
 
 SENSITIVE_KEYS = frozenset(
     {
@@ -22,6 +27,52 @@ SENSITIVE_KEYS = frozenset(
         "token",
     }
 )
+
+
+@dataclass(frozen=True)
+class LoginRateLimitStatus:
+    failed_attempts: int
+    blocked_until: datetime | None
+    retry_after_seconds: int
+
+    @property
+    def is_blocked(self) -> bool:
+        return self.blocked_until is not None
+
+
+def evaluate_login_rate_limit(
+    failure_timestamps: Sequence[datetime],
+    *,
+    now: datetime,
+) -> LoginRateLimitStatus:
+    """Avalia o bloqueio sem manter estado fora dos próprios logs de auditoria."""
+
+    current_time = validate_timestamp(now)
+    timestamps = sorted(validate_timestamp(item) for item in failure_timestamps)
+    recent_start = current_time - LOGIN_ATTEMPT_WINDOW
+    recent_attempts = sum(item >= recent_start for item in timestamps)
+
+    first_in_window = 0
+    blocked_until: datetime | None = None
+    for index, timestamp in enumerate(timestamps):
+        while timestamp - timestamps[first_in_window] > LOGIN_ATTEMPT_WINDOW:
+            first_in_window += 1
+        if index - first_in_window + 1 >= LOGIN_ATTEMPT_LIMIT:
+            candidate = timestamp + LOGIN_BLOCK_DURATION
+            if candidate > current_time and (
+                blocked_until is None or candidate > blocked_until
+            ):
+                blocked_until = candidate
+
+    retry_after = 0
+    if blocked_until is not None:
+        retry_after = max(1, math.ceil((blocked_until - current_time).total_seconds()))
+
+    return LoginRateLimitStatus(
+        failed_attempts=recent_attempts,
+        blocked_until=blocked_until,
+        retry_after_seconds=retry_after,
+    )
 
 
 def validate_required_label(value: str, field_name: str, max_length: int) -> str:

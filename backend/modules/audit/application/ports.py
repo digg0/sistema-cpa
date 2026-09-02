@@ -12,6 +12,13 @@ class AuditLogRepository(Protocol):
 
     def list_recent(self, limit: int = 100) -> list[AuditLog]: ...
 
+    def list_failed_login_timestamps(
+        self,
+        *,
+        identificador: str,
+        since: datetime,
+    ) -> list[datetime]: ...
+
     def list_filtered(
         self,
         *,

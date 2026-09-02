@@ -60,6 +60,30 @@ class SqlAlchemyAuditLogRepository:
         ).all()
         return [self._to_entity(row) for row in rows]
 
+    def list_failed_login_timestamps(
+        self,
+        *,
+        identificador: str,
+        since: datetime,
+    ) -> list[datetime]:
+        rows = self._session.scalars(
+            select(AuditLogModel.timestamp)
+            .where(
+                AuditLogModel.acao == "login",
+                AuditLogModel.recurso == "sessao",
+                AuditLogModel.recurso_id == identificador,
+                AuditLogModel.resultado == "falha",
+                AuditLogModel.timestamp >= since,
+            )
+            .order_by(AuditLogModel.timestamp.asc())
+        ).all()
+        return [
+            timestamp
+            if timestamp.tzinfo is not None
+            else timestamp.replace(tzinfo=timezone.utc)
+            for timestamp in rows
+        ]
+
     def list_filtered(
         self,
         *,
