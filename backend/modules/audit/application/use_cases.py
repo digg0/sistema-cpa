@@ -5,6 +5,10 @@ from uuid import UUID
 from modules.audit.application.ports import AuditLogRepository
 from modules.audit.domain.entities import AuditLog
 from modules.audit.domain.services import (
+    LOGIN_ATTEMPT_WINDOW,
+    LOGIN_BLOCK_DURATION,
+    LoginRateLimitStatus,
+    evaluate_login_rate_limit,
     validate_details,
     validate_required_label,
     validate_timestamp,
@@ -41,6 +45,25 @@ class RecordAuditLog:
             detalhes=validate_details(detalhes),
         )
         return self._audit_logs.add(audit_log)
+
+
+class CheckLoginRateLimit:
+    def __init__(self, audit_logs: AuditLogRepository):
+        self._audit_logs = audit_logs
+
+    def execute(
+        self,
+        *,
+        identificador: str,
+        now: datetime | None = None,
+    ) -> LoginRateLimitStatus:
+        current_time = validate_timestamp(now or datetime.now(timezone.utc))
+        history_start = current_time - LOGIN_ATTEMPT_WINDOW - LOGIN_BLOCK_DURATION
+        failures = self._audit_logs.list_failed_login_timestamps(
+            identificador=identificador,
+            since=history_start,
+        )
+        return evaluate_login_rate_limit(failures, now=current_time)
 
 
 class ListAuditLogs:
