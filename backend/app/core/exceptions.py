@@ -7,6 +7,7 @@ from shared.exceptions import (
     DomainError,
     ForbiddenError,
     NotFoundError,
+    TooManyRequestsError,
     ValidationError,
 )
 
@@ -15,6 +16,17 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AuthenticationError)
     async def _unauthenticated(_request: Request, exc: AuthenticationError) -> JSONResponse:
         return JSONResponse(status_code=401, content={"detail": exc.message, "code": exc.code})
+
+    @app.exception_handler(TooManyRequestsError)
+    async def _too_many_requests(
+        _request: Request,
+        exc: TooManyRequestsError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": exc.message, "code": exc.code},
+            headers={"Retry-After": str(exc.retry_after)},
+        )
 
     @app.exception_handler(ForbiddenError)
     async def _forbidden(_request: Request, exc: ForbiddenError) -> JSONResponse:

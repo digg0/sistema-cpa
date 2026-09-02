@@ -6,9 +6,10 @@ from modules.questionnaires.application.ports import QuestionnaireRepository
 from modules.questionnaires.domain.entities import Question, Questionnaire
 from modules.questionnaires.domain.services import (
     assert_objective_question,
+    assert_valid_perfis_alvo,
     default_likert_questions,
 )
-from shared.enums import StatusQuestionario, TipoPergunta
+from shared.enums import PERFIS_ALVO_TODOS, StatusQuestionario, TipoPergunta
 from shared.exceptions import NotFoundError, ValidationError
 from shared.ids import new_id
 
@@ -21,12 +22,17 @@ class QuestionDraft:
         obrigatoria: bool = True,
         opcoes: list[str] | None = None,
         dimensao: str | None = None,
+        perfis_alvo: list[str] | None = None,
     ):
         self.texto = texto
         self.tipo = tipo
         self.obrigatoria = obrigatoria
         self.opcoes = opcoes
         self.dimensao = dimensao
+        # `None` = não informado -> aplica o padrão (todos os perfis). Uma lista vazia
+        # explícita, por outro lado, é preservada como está para ser rejeitada por
+        # `assert_valid_perfis_alvo` — não deve ser silenciosamente trocada pelo padrão.
+        self.perfis_alvo = list(perfis_alvo) if perfis_alvo is not None else list(PERFIS_ALVO_TODOS)
 
 
 def _build_questions(drafts: list[QuestionDraft] | None, quantidade: int | None) -> list[Question]:
@@ -40,6 +46,7 @@ def _build_questions(drafts: list[QuestionDraft] | None, quantidade: int | None)
                 opcoes=draft.opcoes,
                 dimensao=draft.dimensao,
                 ordem=index + 1,
+                perfis_alvo=list(draft.perfis_alvo),
             )
             for index, draft in enumerate(drafts)
         ]
@@ -60,6 +67,7 @@ def _build_questions(drafts: list[QuestionDraft] | None, quantidade: int | None)
 
     for question in questions:
         assert_objective_question(question)
+        assert_valid_perfis_alvo(question)
     return questions
 
 
@@ -118,6 +126,7 @@ class DuplicateQuestionnaire:
                     opcoes=list(question.opcoes) if question.opcoes else None,
                     dimensao=question.dimensao,
                     ordem=question.ordem,
+                    perfis_alvo=list(question.perfis_alvo),
                 )
                 for question in original.perguntas
             ],

@@ -1,8 +1,9 @@
 from modules.questionnaires.domain.entities import Question, Questionnaire
-from shared.enums import TipoPergunta
+from shared.enums import PERFIS_ALVO_TODOS, TipoPergunta
 from shared.exceptions import ConflictError, ValidationError
 
 ALLOWED_TYPES = {TipoPergunta.LIKERT, TipoPergunta.SIMNAO, TipoPergunta.UNICA}
+VALID_PERFIS_ALVO = set(PERFIS_ALVO_TODOS)
 
 
 def assert_objective_question(question: Question) -> None:
@@ -12,6 +13,16 @@ def assert_objective_question(question: Question) -> None:
         raise ValidationError("O texto da pergunta é obrigatório")
     if question.tipo is TipoPergunta.UNICA and not question.opcoes:
         raise ValidationError("Perguntas de escolha única precisam de opções")
+
+
+def assert_valid_perfis_alvo(question: Question) -> None:
+    if not question.perfis_alvo:
+        raise ValidationError(f"A pergunta '{question.texto}' precisa de ao menos um perfil-alvo")
+    invalidos = set(question.perfis_alvo) - VALID_PERFIS_ALVO
+    if invalidos:
+        raise ValidationError(
+            f"A pergunta '{question.texto}' tem perfil-alvo inválido: {', '.join(sorted(invalidos))}"
+        )
 
 
 def assert_can_mutate(questionnaire: Questionnaire) -> None:

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import BcryptPasswordHasher
+from infrastructure.cpa_questions import CPA_QUESTIONS, QUESTIONARIO_CPA_NOME
 from infrastructure.db.models import (
     AnswerModel,
     CampaignModel,
@@ -16,7 +17,7 @@ from infrastructure.db.models import (
     UserModel,
 )
 from modules.identity.domain.services import normalize_identificador
-from shared.enums import FormatoRelatorio, Perfil, StatusQuestionario, TipoPergunta
+from shared.enums import PERFIS_ALVO_TODOS, FormatoRelatorio, Perfil, StatusQuestionario, TipoPergunta
 from shared.ids import new_id
 
 hasher = BcryptPasswordHasher()
@@ -33,7 +34,14 @@ def _user(nome: str, identificador: str, senha: str, perfil: Perfil) -> UserMode
     )
 
 
-def _question(texto: str, tipo: TipoPergunta, ordem: int, dimensao: str | None = None, opcoes: list[str] | None = None) -> QuestionModel:
+def _question(
+    texto: str,
+    tipo: TipoPergunta,
+    ordem: int,
+    dimensao: str | None = None,
+    opcoes: list[str] | None = None,
+    perfis_alvo: list[str] | None = None,
+) -> QuestionModel:
     return QuestionModel(
         id=str(new_id()),
         texto=texto,
@@ -42,6 +50,7 @@ def _question(texto: str, tipo: TipoPergunta, ordem: int, dimensao: str | None =
         opcoes=opcoes,
         dimensao=dimensao,
         ordem=ordem,
+        perfis_alvo=list(perfis_alvo or PERFIS_ALVO_TODOS),
     )
 
 
@@ -117,6 +126,65 @@ def _seed_answers(session: Session, campaign: CampaignModel, questionnaire: Ques
 
 
 def seed_if_empty(session: Session) -> None:
+    if not session.scalar(select(UserModel.id).limit(1)):
+        _seed_demo_data(session)
+    ensure_official_cpa_questionnaire(session)
+
+
+def ensure_official_cpa_questionnaire(session: Session) -> QuestionnaireModel:
+    existing = session.scalar(
+        select(QuestionnaireModel).where(QuestionnaireModel.nome == QUESTIONARIO_CPA_NOME)
+    )
+    if existing:
+        return existing
+
+    coordenador = session.scalar(
+        select(UserModel).where(UserModel.perfil == Perfil.COORDENADOR_CPA.value)
+    )
+    if coordenador is None:
+        coordenador = _user("Coordenação CPA", "789.012.345-00", "admin123", Perfil.COORDENADOR_CPA)
+        session.add(coordenador)
+        session.flush()
+
+    questionnaire = _questionnaire(
+        QUESTIONARIO_CPA_NOME,
+        "Institucional",
+        1,
+        StatusQuestionario.PUBLICADO,
+        coordenador,
+        datetime(2026, 3, 31),
+        [
+            _question(
+                item["texto"],
+                TipoPergunta.LIKERT,
+                index,
+                item["dimensao"],
+                perfis_alvo=item["perfis_alvo"],
+            )
+            for index, item in enumerate(CPA_QUESTIONS, start=1)
+        ],
+    )
+    session.add(questionnaire)
+    session.flush()
+
+    campaign_nome = "Autoavaliação Institucional 2025 — Campus Tauá"
+    if session.scalar(select(CampaignModel.id).where(CampaignModel.nome == campaign_nome)) is None:
+        session.add(
+            _campaign(
+                campaign_nome,
+                "Institucional",
+                "Instrumento oficial da CPA Local com as dez dimensões do SINAES (ano de referência 2025).",
+                [Perfil.DISCENTE, Perfil.DOCENTE, Perfil.TECNICO],
+                questionnaire,
+                date(2026, 2, 1),
+                date(2026, 12, 31),
+            )
+        )
+        session.flush()
+    return questionnaire
+
+
+def _seed_demo_data(session: Session) -> None:
     if session.scalar(select(UserModel.id).limit(1)):
         return
 

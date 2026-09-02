@@ -56,21 +56,6 @@ export interface Relatorio {
   autor: string
 }
 
-export const credenciais: Record<Perfil, { id: string; senha: string; nome: string; rotuloId: string }> = {
-  Discente: {
-    id: '20261001', senha: '123456', nome: 'João Pedro Alves', rotuloId: 'Matrícula',
-  },
-  Docente: {
-    id: '123.456.789-00', senha: '123456', nome: 'Prof. Ana Beatriz', rotuloId: 'CPF',
-  },
-  Técnico: {
-    id: '456.789.012-00', senha: '123456', nome: 'Carlos Eduardo', rotuloId: 'CPF',
-  },
-  'Coordenador CPA': {
-    id: '789.012.345-00', senha: 'admin123', nome: 'Coordenação CPA', rotuloId: 'CPF',
-  },
-}
-
 export const campanhasBase: Campanha[] = [
   {
     id: 1,
