@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import AuthGuard from './auth/AuthGuard'
 import { ApiError, getCurrentUser } from './auth/api'
 import { clearSession, isSessionValid, loadSession, saveSession, type AuthSession } from './auth/session'
+import { ApiException } from './api/client'
+import { enviarRespostas, listAvaliacoes, type Avaliacao } from './api/avaliacoes'
 import IfceLogo from './components/IfceLogo'
 import { Icons } from './components/Icons'
 import { GREEN, GREEN_L } from './components/ui'
@@ -13,7 +15,7 @@ import Resultados from './screens/Resultados'
 import Relatorios from './screens/Relatorios'
 import MinhasAvaliacoes from './screens/MinhasAvaliacoes'
 import AvaliacoesRespondidas from './screens/AvaliacoesRespondidas'
-import { avaliacoesPorPerfil, campanhasBase, questionariosBase, relatoriosBase, type Campanha, type PerfilParticipante, type QuestionarioAdmin, type Relatorio } from './data/mock'
+import { campanhasBase, questionariosBase, relatoriosBase, type Campanha, type QuestionarioAdmin, type Relatorio } from './data/mock'
 import { statusPorPeriodo } from './utils/date'
 
 type NavItem = { id: string; label: string; icon: ReactNode }
@@ -67,7 +69,9 @@ export default function App() {
   const [questionarios,setQuestionarios]=useState<QuestionarioAdmin[]>(questionariosBase)
   const [relatorios,setRelatorios]=useState<Relatorio[]>(relatoriosBase)
   const [abrirNovaCampanha,setAbrirNovaCampanha]=useState(false)
-  const [respondidas,setRespondidas]=useState<Record<string,string>>({})
+  const [avaliacoes,setAvaliacoes]=useState<Avaliacao[]>([])
+  const [avaliacoesLoading,setAvaliacoesLoading]=useState(false)
+  const [avaliacoesError,setAvaliacoesError]=useState<string|null>(null)
 
   const logout=useCallback(()=>{
     clearSession()
@@ -108,11 +112,24 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[])
 
-  useEffect(()=>{
-    if(!session || session.perfil==='Coordenador CPA'){setRespondidas({});return}
-    const key=`cpa-demo-respostas-${session.perfil}`
-    try{ setRespondidas(JSON.parse(localStorage.getItem(key)||'{}')) }catch{ setRespondidas({}) }
+  const carregarAvaliacoes=useCallback((signal?:AbortSignal)=>{
+    if(!session || session.perfil==='Coordenador CPA'){setAvaliacoes([]);return Promise.resolve()}
+    setAvaliacoesLoading(true)
+    setAvaliacoesError(null)
+    return listAvaliacoes(signal)
+      .then(setAvaliacoes)
+      .catch(error=>{
+        if(error instanceof DOMException && error.name==='AbortError') return
+        setAvaliacoesError(error instanceof ApiException ? error.message : 'Não foi possível carregar suas avaliações.')
+      })
+      .finally(()=>setAvaliacoesLoading(false))
   },[session])
+
+  useEffect(()=>{
+    const controller=new AbortController()
+    carregarAvaliacoes(controller.signal)
+    return ()=>controller.abort()
+  },[carregarAvaliacoes])
 
   function login(nextSession:AuthSession){
     saveSession(nextSession)
@@ -120,11 +137,14 @@ export default function App() {
     setCheckingSession(false)
     setActive(nextSession.perfil==='Coordenador CPA'?'dashboard':'minhas')
   }
-  function responder(id:string){
+  async function responder(avaliacaoId:string,respostas:Record<string,string>){
     if(!session || session.perfil==='Coordenador CPA') return
-    const next={...respondidas,[id]:new Date().toLocaleDateString('pt-BR')}
-    setRespondidas(next)
-    localStorage.setItem(`cpa-demo-respostas-${session.perfil}`,JSON.stringify(next))
+    try{
+      await enviarRespostas(avaliacaoId,respostas)
+    }catch(error){
+      throw new Error(error instanceof ApiException ? error.message : 'Não foi possível enviar sua resposta. Tente novamente.')
+    }
+    await carregarAvaliacoes()
     setActive('respondidas')
   }
   function criarCampanha(c:Campanha){setCampanhas(v=>[c,...v])}
@@ -137,8 +157,7 @@ export default function App() {
 
   const admin=session.perfil==='Coordenador CPA'
   const items=admin?adminNav:participantNav
-  const avaliacoes=admin?[]:avaliacoesPorPerfil[session.perfil as PerfilParticipante]
-  const pendentes=admin?0:avaliacoes.filter(a=>statusPorPeriodo(a.inicio,a.fim)==='Ativa'&&!respondidas[a.id]).length
+  const pendentes=admin?0:avaliacoes.filter(a=>statusPorPeriodo(a.inicio,a.fim)==='Ativa'&&!a.respondidaEm).length
 
   let screen:ReactNode
   if(admin){
@@ -148,7 +167,9 @@ export default function App() {
     else if(active==='relatorios') screen=<Relatorios relatorios={relatorios} onGenerate={gerarRelatorio}/>
     else screen=<Dashboard campanhas={campanhas} onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
   } else {
-    screen=active==='respondidas'?<AvaliacoesRespondidas avaliacoes={avaliacoes} respondidas={respondidas}/>:<MinhasAvaliacoes avaliacoes={avaliacoes} respondidas={respondidas} onResponder={responder}/>
+    screen=active==='respondidas'
+      ?<AvaliacoesRespondidas avaliacoes={avaliacoes} loading={avaliacoesLoading} error={avaliacoesError}/>
+      :<MinhasAvaliacoes avaliacoes={avaliacoes} onResponder={responder} loading={avaliacoesLoading} error={avaliacoesError}/>
   }
 
   return (
