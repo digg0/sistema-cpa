@@ -3,6 +3,7 @@ import AuthGuard from './auth/AuthGuard'
 import { ApiError, getCurrentUser } from './auth/api'
 import { clearSession, isSessionValid, loadSession, saveSession, type AuthSession } from './auth/session'
 import { ApiException } from './api/client'
+import { criarCampanha as criarCampanhaApi, listarCampanhas, type CampanhaApi, type CriarCampanhaInput } from './api/campanhas'
 import { enviarRespostas, listAvaliacoes, type Avaliacao } from './api/avaliacoes'
 import IfceLogo from './components/IfceLogo'
 import { Icons } from './components/Icons'
@@ -15,7 +16,7 @@ import Resultados from './screens/Resultados'
 import Relatorios from './screens/Relatorios'
 import MinhasAvaliacoes from './screens/MinhasAvaliacoes'
 import AvaliacoesRespondidas from './screens/AvaliacoesRespondidas'
-import { campanhasBase, questionariosBase, relatoriosBase, type Campanha, type QuestionarioAdmin, type Relatorio } from './data/mock'
+import { campanhasBase, questionariosBase, relatoriosBase, type QuestionarioAdmin, type Relatorio } from './data/mock'
 import { statusPorPeriodo } from './utils/date'
 
 type NavItem = { id: string; label: string; icon: ReactNode }
@@ -65,7 +66,9 @@ export default function App() {
   const [checkingSession,setCheckingSession]=useState(true)
   const [active,setActive]=useState('dashboard')
   const [mobileMenu,setMobileMenu]=useState(false)
-  const [campanhas,setCampanhas]=useState<Campanha[]>(campanhasBase)
+  const [campanhas,setCampanhas]=useState<CampanhaApi[]>([])
+  const [campanhasLoading,setCampanhasLoading]=useState(false)
+  const [campanhasError,setCampanhasError]=useState<string|null>(null)
   const [questionarios,setQuestionarios]=useState<QuestionarioAdmin[]>(questionariosBase)
   const [relatorios,setRelatorios]=useState<Relatorio[]>(relatoriosBase)
   const [abrirNovaCampanha,setAbrirNovaCampanha]=useState(false)
@@ -112,6 +115,30 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[])
 
+  const carregarCampanhas=useCallback((signal?:AbortSignal)=>{
+    if(!session || session.perfil!=='Coordenador CPA'){
+      setCampanhas([])
+      setCampanhasError(null)
+      return Promise.resolve()
+    }
+
+    setCampanhasLoading(true)
+    setCampanhasError(null)
+
+    return listarCampanhas(signal)
+      .then(setCampanhas)
+      .catch(error=>{
+        if(error instanceof DOMException && error.name==='AbortError') return
+
+        setCampanhasError(
+          error instanceof ApiException
+            ? error.message
+            : 'Não foi possível carregar as campanhas.'
+        )
+      })
+      .finally(()=>setCampanhasLoading(false))
+  },[session])
+
   const carregarAvaliacoes=useCallback((signal?:AbortSignal)=>{
     if(!session || session.perfil==='Coordenador CPA'){setAvaliacoes([]);return Promise.resolve()}
     setAvaliacoesLoading(true)
@@ -124,6 +151,12 @@ export default function App() {
       })
       .finally(()=>setAvaliacoesLoading(false))
   },[session])
+
+  useEffect(()=>{
+    const controller=new AbortController()
+    carregarCampanhas(controller.signal)
+    return ()=>controller.abort()
+  },[carregarCampanhas])
 
   useEffect(()=>{
     const controller=new AbortController()
@@ -147,7 +180,24 @@ export default function App() {
     await carregarAvaliacoes()
     setActive('respondidas')
   }
-  function criarCampanha(c:Campanha){setCampanhas(v=>[c,...v])}
+  async function criarCampanha(input:CriarCampanhaInput){
+    try{
+      const criada=await criarCampanhaApi(input)
+
+      setCampanhas(atual=>[
+        criada,
+        ...atual.filter(campanha=>campanha.id!==criada.id),
+      ])
+
+      setCampanhasError(null)
+    }catch(error){
+      throw new Error(
+        error instanceof ApiException
+          ? error.message
+          : 'Não foi possível criar a campanha. Tente novamente.'
+      )
+    }
+  }
   function criarQuestionario(q:QuestionarioAdmin){setQuestionarios(v=>[q,...v])}
   function duplicarQuestionario(q:QuestionarioAdmin){setQuestionarios(v=>[{...q,id:`Q-${Date.now()}`,nome:`${q.nome} — cópia`,versao:q.versao+1,status:'Rascunho',usos:0,atualizado:new Date().toLocaleDateString('pt-BR')},...v])}
   function gerarRelatorio(r:Relatorio){setRelatorios(v=>[r,...v])}
@@ -161,11 +211,11 @@ export default function App() {
 
   let screen:ReactNode
   if(admin){
-    if(active==='campanhas') screen=<Campanhas campanhas={campanhas} onCreate={criarCampanha} abrirNova={abrirNovaCampanha} onNovaAberta={()=>setAbrirNovaCampanha(false)}/>
+    if(active==='campanhas') screen=<Campanhas campanhas={campanhas} onCreate={criarCampanha} loading={campanhasLoading} error={campanhasError} abrirNova={abrirNovaCampanha} onNovaAberta={()=>setAbrirNovaCampanha(false)}/>
     else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onCreate={criarQuestionario} onDuplicate={duplicarQuestionario}/>
-    else if(active==='resultados') screen=<Resultados campanhas={campanhas}/>
+    else if(active==='resultados') screen=<Resultados campanhas={campanhasBase}/>
     else if(active==='relatorios') screen=<Relatorios relatorios={relatorios} onGenerate={gerarRelatorio}/>
-    else screen=<Dashboard campanhas={campanhas} onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
+    else screen=<Dashboard campanhas={campanhasBase} onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
   } else {
     screen=active==='respondidas'
       ?<AvaliacoesRespondidas avaliacoes={avaliacoes} loading={avaliacoesLoading} error={avaliacoesError}/>
