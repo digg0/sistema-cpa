@@ -12,6 +12,7 @@ class QuestionIn(BaseModel):
     obrigatoria: bool = True
     opcoes: list[str] | None = None
     dimensao: str | None = None
+    perfis_alvo: list[str] | None = None
 
 
 class QuestionOut(BaseModel):
@@ -22,6 +23,7 @@ class QuestionOut(BaseModel):
     opcoes: list[str] | None = None
     dimensao: str | None = None
     ordem: int
+    perfis_alvo: list[str]
 
 
 class CreateQuestionnaireIn(BaseModel):

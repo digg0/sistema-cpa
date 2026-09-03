@@ -1,8 +1,10 @@
+from modules.audit.domain.entities import AuditLog
 from modules.campaigns.domain.entities import Campaign
 from modules.identity.domain.entities import User
 from modules.questionnaires.domain.entities import Question, Questionnaire
 from modules.analytics.application.use_cases import Report
 
+from app.api.v1.schemas.auditoria import AuditLogOut
 from app.api.v1.schemas.avaliacoes import AvaliacaoOut
 from app.api.v1.schemas.campanhas import CampaignOut
 from app.api.v1.schemas.questionarios import QuestionOut, QuestionnaireDetailOut, QuestionnaireSummaryOut
@@ -18,6 +20,7 @@ def question_out(question: Question) -> QuestionOut:
         opcoes=question.opcoes,
         dimensao=question.dimensao,
         ordem=question.ordem,
+        perfis_alvo=list(question.perfis_alvo),
     )
 
 
@@ -65,7 +68,11 @@ def campaign_out(item: Campaign) -> CampaignOut:
 def avaliacao_out(item: dict, user: User) -> AvaliacaoOut:
     campaign: Campaign = item["campaign"]
     questionnaire: Questionnaire | None = item["questionnaire"]
-    perguntas = [question_out(question) for question in (questionnaire.perguntas if questionnaire else [])]
+    perguntas = [
+        question_out(question)
+        for question in (questionnaire.perguntas if questionnaire else [])
+        if question.visivel_para(user.perfil)
+    ]
     return AvaliacaoOut(
         id=campaign.id,
         titulo=campaign.nome,
@@ -89,4 +96,18 @@ def report_out(item: Report) -> ReportOut:
         autor=item.autor_nome,
         gerado=item.gerado_em,
         campaign_id=item.campaign_id,
+    )
+
+
+def audit_log_out(item: AuditLog) -> AuditLogOut:
+    return AuditLogOut(
+        id=item.id,
+        timestamp=item.timestamp,
+        ator_id=item.ator_id,
+        ator_perfil=item.ator_perfil,
+        acao=item.acao,
+        recurso=item.recurso,
+        recurso_id=item.recurso_id,
+        resultado=item.resultado,
+        detalhes=item.detalhes,
     )

@@ -3,13 +3,37 @@ from datetime import date
 import pytest
 
 from modules.campaigns.domain.services import assert_can_answer, assert_results_visible, status_por_periodo
+from modules.identity.domain.services import normalize_identificador
 from modules.questionnaires.domain.entities import Question, Questionnaire
-from modules.questionnaires.domain.services import assert_can_mutate, assert_objective_question
+from modules.questionnaires.domain.services import (
+    assert_can_mutate,
+    assert_objective_question,
+    assert_valid_perfis_alvo,
+)
 from modules.responses.domain.entities import Answer
 from modules.responses.domain.services import assert_not_already_participated, validate_answers
 from shared.enums import Perfil, StatusCampanha, StatusQuestionario, TipoPergunta
 from shared.exceptions import ConflictError, ForbiddenError, ValidationError
 from shared.ids import new_id
+
+
+def test_normalize_identificador_email_so_normaliza_caixa():
+    assert normalize_identificador("  Ana.Beatriz@IFCE.EDU.BR  ") == "ana.beatriz@ifce.edu.br"
+
+
+def test_normalize_identificador_email_invalido_e_rejeitado():
+    with pytest.raises(ValidationError):
+        normalize_identificador("@ifce.edu.br")
+    with pytest.raises(ValidationError):
+        normalize_identificador("ana@dominio-sem-ponto")
+    with pytest.raises(ValidationError):
+        normalize_identificador("ana@")
+
+
+def test_normalize_identificador_matricula_mantem_comportamento_original():
+    assert normalize_identificador(" 2026.1001 ") == "20261001"
+    with pytest.raises(ValidationError):
+        normalize_identificador("   ")
 
 
 def test_status_por_periodo():
@@ -55,6 +79,25 @@ def test_rejeita_pergunta_nao_objetiva():
     question.tipo = "discursiva"  # type: ignore[assignment]
     with pytest.raises(ValidationError):
         assert_objective_question(question)
+
+
+def test_rejeita_perfis_alvo_vazio():
+    question = Question(id=new_id(), texto="Domínio?", tipo=TipoPergunta.LIKERT, perfis_alvo=[])
+    with pytest.raises(ValidationError):
+        assert_valid_perfis_alvo(question)
+
+
+def test_rejeita_perfis_alvo_invalido():
+    question = Question(
+        id=new_id(), texto="Domínio?", tipo=TipoPergunta.LIKERT, perfis_alvo=["docente", "estudante"]
+    )
+    with pytest.raises(ValidationError):
+        assert_valid_perfis_alvo(question)
+
+
+def test_aceita_perfis_alvo_valido():
+    question = Question(id=new_id(), texto="Domínio?", tipo=TipoPergunta.LIKERT, perfis_alvo=["docente"])
+    assert_valid_perfis_alvo(question)
 
 
 def test_uma_participacao_por_campanha():

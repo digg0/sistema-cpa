@@ -37,7 +37,8 @@ class SubmitResponse:
             raise NotFoundError("Questionário da campanha não encontrado")
 
         now = datetime.now(timezone.utc)
-        validated = validate_answers(questionnaire.perguntas, answers)
+        perguntas = [question for question in questionnaire.perguntas if question.visivel_para(user.perfil)]
+        validated = validate_answers(perguntas, answers)
         submission = Submission(
             id=new_id(),
             campaign_id=campaign.id,

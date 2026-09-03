@@ -1,6 +1,22 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: postgres_prod
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-cpa}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD (sem valor padrão em produção)}
+      - POSTGRES_DB=${POSTGRES_DB:-cpa}
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cpa} -d ${POSTGRES_DB:-cpa}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -9,13 +25,14 @@ services:
     restart: always
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend/data:/app/data
     environment:
       - ENVIRONMENT=production
-      - DATABASE_URL=sqlite:///./data/cpa.db
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-cpa}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD (sem valor padrão em produção)}@db:5432/${POSTGRES_DB:-cpa}
+      - SECRET_KEY=${SECRET_KEY}
       - CORS_ORIGINS=http://localhost,http://127.0.0.1
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
     build:
@@ -27,3 +44,6 @@ services:
       - "80:80"
     depends_on:
       - backend
+
+volumes:
+  pgdata_prod:
