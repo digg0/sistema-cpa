@@ -16,7 +16,7 @@ const meta: Record<Perfil, { descricao: string; icon: React.ReactNode; accent: s
 }
 
 function labelIdentificador(perfil: Perfil): string {
-  return perfil === 'Discente' ? 'Matrícula' : 'CPF'
+  return perfil === 'Discente' ? 'Matrícula' : 'E-mail institucional'
 }
 
 export default function Login({ onLogin }: { onLogin: (session: AuthSession) => void }) {
@@ -128,8 +128,8 @@ export default function Login({ onLogin }: { onLogin: (session: AuthSession) => 
                   <label htmlFor="identificador" className="block text-sm font-semibold text-slate-700 mb-1.5">{labelIdentificador(perfil)}</label>
                   <div className="relative">
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">{perfil === 'Discente' ? Icons.student({ width: 18, height: 18 }) : Icons.user({ width: 18, height: 18 })}</span>
-                    <input id="identificador" autoComplete="username" required value={identificador} onChange={e => setIdentificador(e.target.value)}
-                      placeholder={perfil === 'Discente' ? 'Digite sua matrícula' : '000.000.000-00'}
+                    <input id="identificador" autoComplete="username" required type={perfil === 'Discente' ? 'text' : 'email'} value={identificador} onChange={e => setIdentificador(e.target.value)}
+                      placeholder={perfil === 'Discente' ? 'Digite sua matrícula' : 'nome@ifce.edu.br'}
                       className="w-full rounded-xl border border-slate-300 bg-white pl-11 pr-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-green-600 focus:ring-4 focus:ring-green-600/10" />
                   </div>
                 </div>
