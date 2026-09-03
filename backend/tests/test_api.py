@@ -10,8 +10,8 @@ def test_health(app_client):
 def test_login_dos_perfis(app_client):
     cases = [
         ("Discente", "20261001", "123456", "João Pedro Alves"),
-        ("Docente", "123.456.789-00", "123456", "Prof. Ana Beatriz"),
-        ("Coordenador CPA", "789.012.345-00", "admin123", "Coordenação CPA"),
+        ("Docente", "ana.beatriz@ifce.edu.br", "123456", "Prof. Ana Beatriz"),
+        ("Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123", "Coordenação CPA"),
     ]
     for perfil, identificador, senha, nome in cases:
         response = app_client.post(
@@ -52,7 +52,7 @@ def test_rbac_discente_nao_cria_questionario(app_client):
 
 
 def test_coordenador_cria_e_duplica_questionario(app_client):
-    token = login(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    token = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     created = app_client.post(
         "/api/v1/questionarios",
         headers=auth_header(token),
@@ -71,7 +71,7 @@ def test_coordenador_cria_e_duplica_questionario(app_client):
 
 
 def test_campanha_sem_tipo_e_publico_usa_padrao_geral(app_client):
-    token = login(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    token = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     questionarios = app_client.get("/api/v1/questionarios", headers=auth_header(token)).json()
     publicado = next(item for item in questionarios if item["status"] == "Publicado")
     response = app_client.post(
@@ -91,7 +91,7 @@ def test_campanha_sem_tipo_e_publico_usa_padrao_geral(app_client):
 
 
 def test_questionario_rejeita_perfil_alvo_invalido(app_client):
-    token = login(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    token = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     response = app_client.post(
         "/api/v1/questionarios",
         headers=auth_header(token),
@@ -105,7 +105,7 @@ def test_questionario_rejeita_perfil_alvo_invalido(app_client):
 
 
 def test_questionario_rejeita_perfis_alvo_vazio(app_client):
-    token = login(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    token = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     response = app_client.post(
         "/api/v1/questionarios",
         headers=auth_header(token),
@@ -119,7 +119,7 @@ def test_questionario_rejeita_perfis_alvo_vazio(app_client):
 
 
 def test_campanha_exige_questionario_publicado(app_client):
-    token = login(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    token = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     questionarios = app_client.get("/api/v1/questionarios", headers=auth_header(token)).json()
     rascunho = next(item for item in questionarios if item["status"] == "Rascunho")
     response = app_client.post(
@@ -182,7 +182,7 @@ def test_nao_responde_campanha_agendada(app_client):
 
 
 def test_resultados_somente_encerrada(app_client):
-    admin = login(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    admin = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     campanhas = app_client.get("/api/v1/campanhas", headers=auth_header(admin)).json()
     ativa = next(item for item in campanhas if item["status"] == "Ativa")
     encerrada = next(item for item in campanhas if item["status"] == "Encerrada")
@@ -194,7 +194,7 @@ def test_resultados_somente_encerrada(app_client):
 
 
 def test_dashboard_e_relatorio(app_client):
-    admin = login(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    admin = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     dashboard = app_client.get("/api/v1/dashboard", headers=auth_header(admin))
     assert dashboard.status_code == 200
     created = app_client.post(

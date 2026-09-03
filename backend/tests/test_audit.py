@@ -204,7 +204,7 @@ def _login_ids(client, perfil, identificador, senha):
 
 
 def test_login_bem_sucedido_gera_registro_de_auditoria(app_client):
-    admin_token, admin_id = _login_ids(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    admin_token, admin_id = _login_ids(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
 
     logs = app_client.get(
         "/api/v1/auditoria",
@@ -223,7 +223,7 @@ def test_login_malsucedido_gera_registro_sem_identificar_ator(app_client):
     )
     assert response.status_code == 401
 
-    admin_token, _ = _login_ids(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    admin_token, _ = _login_ids(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     logs = app_client.get(
         "/api/v1/auditoria",
         headers=auth_header(admin_token),
@@ -238,7 +238,7 @@ def test_login_malsucedido_gera_registro_sem_identificar_ator(app_client):
 
 
 def test_acoes_administrativas_geram_auditoria(app_client):
-    admin_token, admin_id = _login_ids(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    admin_token, admin_id = _login_ids(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     headers = auth_header(admin_token)
 
     questionario = app_client.post(
@@ -283,7 +283,7 @@ def test_acoes_administrativas_geram_auditoria(app_client):
 
 
 def test_consulta_de_auditoria_restrita_ao_coordenador(app_client):
-    admin_token, _ = _login_ids(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    admin_token, _ = _login_ids(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     discente_token = login(app_client, "Discente", "20261001", "123456")
 
     allowed = app_client.get("/api/v1/auditoria", headers=auth_header(admin_token))
@@ -297,7 +297,7 @@ def test_consulta_de_auditoria_restrita_ao_coordenador(app_client):
 
 
 def test_auditoria_nao_expoe_rota_de_edicao_ou_remocao(app_client):
-    admin_token, _ = _login_ids(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    admin_token, _ = _login_ids(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     headers = auth_header(admin_token)
     logs = app_client.get("/api/v1/auditoria", headers=headers).json()
     assert logs, "esperava ao menos o log do próprio login"
@@ -330,7 +330,7 @@ def test_responder_avaliacao_nao_gera_log_de_auditoria(app_client):
     )
     assert submitted.status_code == 201, submitted.text
 
-    admin_token, _ = _login_ids(app_client, "Coordenador CPA", "789.012.345-00", "admin123")
+    admin_token, _ = _login_ids(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     logs = app_client.get(
         "/api/v1/auditoria",
         headers=auth_header(admin_token),

@@ -24,10 +24,10 @@ Protótipo front-end navegável baseado no projeto enviado pelo usuário e nos r
 
 | Perfil | Identificador | Senha |
 |---|---|---|
-| Discente | `20261001` | `123456` |
-| Docente | `123.456.789-00` | `123456` |
-| Técnico | `456.789.012-00` | `123456` |
-| Coordenador CPA | `789.012.345-00` | `admin123` |
+| Discente | `20261001` (matrícula) | `123456` |
+| Docente | `ana.beatriz@ifce.edu.br` | `123456` |
+| Técnico | `carlos.eduardo@ifce.edu.br` | `123456` |
+| Coordenador CPA | `coordenacao.cpa@ifce.edu.br` | `admin123` |
 
 A própria tela de login também oferece o botão **Preencher automaticamente**.
 
