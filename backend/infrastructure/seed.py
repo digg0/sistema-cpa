@@ -4,6 +4,7 @@ from random import Random
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.core.security import BcryptPasswordHasher
 from infrastructure.cpa_questions import CPA_QUESTIONS, QUESTIONARIO_CPA_NOME
 from infrastructure.db.models import (
@@ -126,7 +127,10 @@ def _seed_answers(session: Session, campaign: CampaignModel, questionnaire: Ques
 
 
 def seed_if_empty(session: Session) -> None:
-    if not session.scalar(select(UserModel.id).limit(1)):
+    # Dado de demonstração (contas com senha fraca conhecida, campanhas e
+    # respostas fabricadas) nunca deve existir em produção — só o questionário
+    # oficial (ensure_official_cpa_questionnaire) é criado nesse ambiente.
+    if get_settings().environment != "production" and not session.scalar(select(UserModel.id).limit(1)):
         _seed_demo_data(session)
     ensure_official_cpa_questionnaire(session)
 
