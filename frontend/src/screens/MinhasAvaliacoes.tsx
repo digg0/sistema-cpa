@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Icons } from '../components/Icons'
 import { Badge, Card, GREEN, Modal, PrimaryButton, SecondaryButton } from '../components/ui'
-import type { AvaliacaoDisponivel, Pergunta } from '../data/mock'
+import type { Avaliacao, PerguntaApi } from '../api/avaliacoes'
 import { diasAte, statusPorPeriodo } from '../utils/date'
 
 const likert = [
@@ -12,7 +12,7 @@ const likert = [
   { v: 5, label: 'Muito satisfeito' },
 ]
 
-function RespostaObjetiva({ pergunta, valor, onChange }: { pergunta: Pergunta; valor?: string; onChange: (value: string) => void }) {
+function RespostaObjetiva({ pergunta, valor, onChange }: { pergunta: PerguntaApi; valor?: string; onChange: (value: string) => void }) {
   if (pergunta.tipo === 'simnao') {
     return (
       <div className="grid sm:grid-cols-2 gap-3 mt-5">
@@ -64,23 +64,37 @@ function RespostaObjetiva({ pergunta, valor, onChange }: { pergunta: Pergunta; v
   )
 }
 
-function QuestionarioModal({ avaliacao, onClose, onConcluir }: { avaliacao: AvaliacaoDisponivel; onClose: () => void; onConcluir: () => void }) {
+function QuestionarioModal({ avaliacao, onClose, onConcluir }: { avaliacao: Avaliacao; onClose: () => void; onConcluir: (respostas: Record<string, string>) => Promise<void> }) {
   const [index, setIndex] = useState(0)
-  const [respostas, setRespostas] = useState<Record<number, string>>({})
+  const [respostas, setRespostas] = useState<Record<string, string>>({})
   const [confirmando, setConfirmando] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState('')
   const pergunta = avaliacao.perguntas[index]
   const progresso = Math.round(((index + 1) / avaliacao.perguntas.length) * 100)
   const podeAvancar = !pergunta.obrigatoria || Boolean(respostas[pergunta.id])
   const ultima = index === avaliacao.perguntas.length - 1
 
+  async function enviar() {
+    setEnviando(true)
+    setErro('')
+    try {
+      await onConcluir(respostas)
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível enviar sua resposta. Tente novamente.')
+      setEnviando(false)
+    }
+  }
+
   if (confirmando) {
     return (
       <Modal title="Confirmar envio" sub={avaliacao.titulo} onClose={() => setConfirmando(false)} maxWidth="max-w-lg"
-        footer={<div className="flex justify-end gap-2"><SecondaryButton onClick={() => setConfirmando(false)}>Voltar</SecondaryButton><PrimaryButton onClick={onConcluir}>{Icons.check({ width: 17, height: 17 })} Enviar respostas</PrimaryButton></div>}>
+        footer={<div className="flex justify-end gap-2"><SecondaryButton onClick={() => setConfirmando(false)} disabled={enviando}>Voltar</SecondaryButton><PrimaryButton onClick={enviar} disabled={enviando}>{Icons.check({ width: 17, height: 17 })} {enviando ? 'Enviando…' : 'Enviar respostas'}</PrimaryButton></div>}>
         <div className="p-6">
           <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center mb-4" style={{ color: GREEN }}>{Icons.shield()}</div>
           <p className="text-sm text-slate-700 leading-6">Você respondeu <strong>{Object.keys(respostas).length} de {avaliacao.perguntas.length}</strong> questões. Após o envio, esta avaliação será considerada concluída e não poderá ser respondida novamente.</p>
           <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs text-slate-500 flex gap-2">{Icons.lock({ width: 16, height: 16 })}<span>As respostas são registradas de forma anônima e apresentadas apenas de maneira consolidada.</span></div>
+          {erro && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{erro}</div>}
         </div>
       </Modal>
     )
@@ -103,16 +117,23 @@ function QuestionarioModal({ avaliacao, onClose, onConcluir }: { avaliacao: Aval
   )
 }
 
-export default function MinhasAvaliacoes({ avaliacoes, respondidas, onResponder }: { avaliacoes: AvaliacaoDisponivel[]; respondidas: Record<string, string>; onResponder: (id: string) => void }) {
-  const [selecionada, setSelecionada] = useState<AvaliacaoDisponivel | null>(null)
+export default function MinhasAvaliacoes({ avaliacoes, onResponder, loading, error }: { avaliacoes: Avaliacao[]; onResponder: (avaliacaoId: string, respostas: Record<string, string>) => Promise<void>; loading?: boolean; error?: string | null }) {
+  const [selecionada, setSelecionada] = useState<Avaliacao | null>(null)
 
   const { disponiveis, proximas } = useMemo(() => {
-    const abertas = avaliacoes.filter(a => statusPorPeriodo(a.inicio, a.fim) === 'Ativa' && !respondidas[a.id])
+    const abertas = avaliacoes.filter(a => statusPorPeriodo(a.inicio, a.fim) === 'Ativa' && !a.respondidaEm)
     const agendadas = avaliacoes.filter(a => statusPorPeriodo(a.inicio, a.fim) === 'Agendada')
     return { disponiveis: abertas, proximas: agendadas }
-  }, [avaliacoes, respondidas])
+  }, [avaliacoes])
 
-  const respondidasNoPerfil = avaliacoes.filter(a => Boolean(respondidas[a.id])).length
+  const respondidasNoPerfil = avaliacoes.filter(a => Boolean(a.respondidaEm)).length
+
+  if (loading) {
+    return <Card className="max-w-6xl mx-auto p-10 text-center text-sm text-slate-400">Carregando suas avaliações…</Card>
+  }
+  if (error) {
+    return <Card className="max-w-6xl mx-auto p-10 text-center text-sm text-red-700 bg-red-50 border-red-200">{error}</Card>
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -184,7 +205,16 @@ export default function MinhasAvaliacoes({ avaliacoes, respondidas, onResponder 
         </div>
       )}
 
-      {selecionada && <QuestionarioModal avaliacao={selecionada} onClose={() => setSelecionada(null)} onConcluir={() => { onResponder(selecionada.id); setSelecionada(null) }} />}
+      {selecionada && (
+        <QuestionarioModal
+          avaliacao={selecionada}
+          onClose={() => setSelecionada(null)}
+          onConcluir={async respostas => {
+            await onResponder(selecionada.id, respostas)
+            setSelecionada(null)
+          }}
+        />
+      )}
     </div>
   )
 }
