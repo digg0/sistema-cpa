@@ -55,12 +55,12 @@ def test_limite_de_um_identificador_nao_afeta_outro(app_client):
 
     other_user_failure = _attempt(
         app_client,
-        "123.456.789-00",
+        "ana.beatriz@ifce.edu.br",
         "senha-errada",
         "Docente",
     )
     assert other_user_failure.status_code == 401
-    other_user_success = _attempt(app_client, "123.456.789-00", "123456", "Docente")
+    other_user_success = _attempt(app_client, "ana.beatriz@ifce.edu.br", "123456", "Docente")
     assert other_user_success.status_code == 200
     assert _attempt(app_client, "20261001", "senha-errada").status_code == 429
 
