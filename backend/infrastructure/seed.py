@@ -142,7 +142,7 @@ def ensure_official_cpa_questionnaire(session: Session) -> QuestionnaireModel:
         select(UserModel).where(UserModel.perfil == Perfil.COORDENADOR_CPA.value)
     )
     if coordenador is None:
-        coordenador = _user("Coordenação CPA", "789.012.345-00", "admin123", Perfil.COORDENADOR_CPA)
+        coordenador = _user("Coordenação CPA", "coordenacao.cpa@ifce.edu.br", "admin123", Perfil.COORDENADOR_CPA)
         session.add(coordenador)
         session.flush()
 
@@ -188,14 +188,14 @@ def _seed_demo_data(session: Session) -> None:
     if session.scalar(select(UserModel.id).limit(1)):
         return
 
-    coordenador = _user("Coordenação CPA", "789.012.345-00", "admin123", Perfil.COORDENADOR_CPA)
+    coordenador = _user("Coordenação CPA", "coordenacao.cpa@ifce.edu.br", "admin123", Perfil.COORDENADOR_CPA)
     discente = _user("João Pedro Alves", "20261001", "123456", Perfil.DISCENTE)
-    docente = _user("Prof. Ana Beatriz", "123.456.789-00", "123456", Perfil.DOCENTE)
-    tecnico = _user("Carlos Eduardo", "456.789.012-00", "123456", Perfil.TECNICO)
+    docente = _user("Prof. Ana Beatriz", "ana.beatriz@ifce.edu.br", "123456", Perfil.DOCENTE)
+    tecnico = _user("Carlos Eduardo", "carlos.eduardo@ifce.edu.br", "123456", Perfil.TECNICO)
     extras = (
         [_user(f"Discente {index:02d}", f"20261{index:03d}", "123456", Perfil.DISCENTE) for index in range(2, 16)]
-        + [_user(f"Docente {index:02d}", f"100.000.000-{index:02d}", "123456", Perfil.DOCENTE) for index in range(2, 10)]
-        + [_user(f"Técnico {index:02d}", f"200.000.000-{index:02d}", "123456", Perfil.TECNICO) for index in range(2, 8)]
+        + [_user(f"Docente {index:02d}", f"docente{index:02d}@ifce.edu.br", "123456", Perfil.DOCENTE) for index in range(2, 10)]
+        + [_user(f"Técnico {index:02d}", f"tecnico{index:02d}@ifce.edu.br", "123456", Perfil.TECNICO) for index in range(2, 8)]
     )
     session.add_all([coordenador, discente, docente, tecnico, *extras])
     session.flush()
