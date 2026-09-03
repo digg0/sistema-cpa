@@ -5,6 +5,7 @@ import { clearSession, isSessionValid, loadSession, saveSession, type AuthSessio
 import { ApiException } from './api/client'
 import { criarCampanha as criarCampanhaApi, listarCampanhas, type CampanhaApi, type CriarCampanhaInput } from './api/campanhas'
 import { enviarRespostas, listAvaliacoes, type Avaliacao } from './api/avaliacoes'
+import { duplicarQuestionario as duplicarQuestionarioApi, listarQuestionarios, type QuestionarioApi } from './api/questionarios'
 import IfceLogo from './components/IfceLogo'
 import { Icons } from './components/Icons'
 import { GREEN, GREEN_L } from './components/ui'
@@ -16,7 +17,7 @@ import Resultados from './screens/Resultados'
 import Relatorios from './screens/Relatorios'
 import MinhasAvaliacoes from './screens/MinhasAvaliacoes'
 import AvaliacoesRespondidas from './screens/AvaliacoesRespondidas'
-import { campanhasBase, questionariosBase, relatoriosBase, type QuestionarioAdmin, type Relatorio } from './data/mock'
+import { campanhasBase, relatoriosBase, type Relatorio } from './data/mock'
 import { statusPorPeriodo } from './utils/date'
 
 type NavItem = { id: string; label: string; icon: ReactNode }
@@ -69,7 +70,9 @@ export default function App() {
   const [campanhas,setCampanhas]=useState<CampanhaApi[]>([])
   const [campanhasLoading,setCampanhasLoading]=useState(false)
   const [campanhasError,setCampanhasError]=useState<string|null>(null)
-  const [questionarios,setQuestionarios]=useState<QuestionarioAdmin[]>(questionariosBase)
+  const [questionarios,setQuestionarios]=useState<QuestionarioApi[]>([])
+  const [questionariosLoading,setQuestionariosLoading]=useState(false)
+  const [questionariosError,setQuestionariosError]=useState<string|null>(null)
   const [relatorios,setRelatorios]=useState<Relatorio[]>(relatoriosBase)
   const [abrirNovaCampanha,setAbrirNovaCampanha]=useState(false)
   const [avaliacoes,setAvaliacoes]=useState<Avaliacao[]>([])
@@ -139,6 +142,23 @@ export default function App() {
       .finally(()=>setCampanhasLoading(false))
   },[session])
 
+  const carregarQuestionarios=useCallback((signal?:AbortSignal)=>{
+    if(!session || session.perfil!=='Coordenador CPA'){
+      setQuestionarios([])
+      setQuestionariosError(null)
+      return Promise.resolve()
+    }
+    setQuestionariosLoading(true)
+    setQuestionariosError(null)
+    return listarQuestionarios(signal)
+      .then(setQuestionarios)
+      .catch(error=>{
+        if(error instanceof DOMException && error.name==='AbortError') return
+        setQuestionariosError(error instanceof ApiException ? error.message : 'Não foi possível carregar os questionários.')
+      })
+      .finally(()=>setQuestionariosLoading(false))
+  },[session])
+
   const carregarAvaliacoes=useCallback((signal?:AbortSignal)=>{
     if(!session || session.perfil==='Coordenador CPA'){setAvaliacoes([]);return Promise.resolve()}
     setAvaliacoesLoading(true)
@@ -157,6 +177,12 @@ export default function App() {
     carregarCampanhas(controller.signal)
     return ()=>controller.abort()
   },[carregarCampanhas])
+
+  useEffect(()=>{
+    const controller=new AbortController()
+    carregarQuestionarios(controller.signal)
+    return ()=>controller.abort()
+  },[carregarQuestionarios])
 
   useEffect(()=>{
     const controller=new AbortController()
@@ -198,8 +224,14 @@ export default function App() {
       )
     }
   }
-  function criarQuestionario(q:QuestionarioAdmin){setQuestionarios(v=>[q,...v])}
-  function duplicarQuestionario(q:QuestionarioAdmin){setQuestionarios(v=>[{...q,id:`Q-${Date.now()}`,nome:`${q.nome} — cópia`,versao:q.versao+1,status:'Rascunho',usos:0,atualizado:new Date().toLocaleDateString('pt-BR')},...v])}
+  async function duplicarQuestionario(id:string){
+    try{
+      await duplicarQuestionarioApi(id)
+    }catch(error){
+      throw new Error(error instanceof ApiException ? error.message : 'Não foi possível duplicar o questionário. Tente novamente.')
+    }
+    await carregarQuestionarios()
+  }
   function gerarRelatorio(r:Relatorio){setRelatorios(v=>[r,...v])}
 
   if(checkingSession) return <SessionCheck/>
@@ -212,8 +244,8 @@ export default function App() {
   let screen:ReactNode
   if(admin){
     if(active==='campanhas') screen=<Campanhas campanhas={campanhas} onCreate={criarCampanha} loading={campanhasLoading} error={campanhasError} abrirNova={abrirNovaCampanha} onNovaAberta={()=>setAbrirNovaCampanha(false)}/>
-    else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onCreate={criarQuestionario} onDuplicate={duplicarQuestionario}/>
-    else if(active==='resultados') screen=<Resultados campanhas={campanhasBase}/>
+    else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onDuplicate={duplicarQuestionario} loading={questionariosLoading} error={questionariosError}/>
+    else if(active==='resultados') screen=<Resultados campanhas={campanhas}/>
     else if(active==='relatorios') screen=<Relatorios relatorios={relatorios} onGenerate={gerarRelatorio}/>
     else screen=<Dashboard campanhas={campanhasBase} onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
   } else {
