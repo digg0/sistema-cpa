@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.api.v1.schemas.questionarios import QuestionOut
-from shared.enums import Perfil, StatusCampanha
+from shared.enums import Perfil, StatusAcessoAvaliacao, StatusCampanha
 
 
 class AvaliacaoOut(BaseModel):
@@ -18,6 +18,10 @@ class AvaliacaoOut(BaseModel):
     categoria: str
     status: StatusCampanha
     respondida_em: datetime | None = None
+
+
+class AvaliacaoDiretaOut(AvaliacaoOut):
+    access_status: StatusAcessoAvaliacao
 
 
 class AnswerIn(BaseModel):

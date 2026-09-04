@@ -25,7 +25,7 @@ function Radar() {
 
 export default function Resultados({ campanhas }: { campanhas: Campanha[] }) {
   const encerradas = useMemo(() => campanhas.filter(c => statusPorPeriodo(c.inicio, c.fim) === 'Encerrada'), [campanhas])
-  const [campId, setCampId] = useState<number>(() => encerradas[0]?.id ?? 0)
+  const [campId, setCampId] = useState<string>(() => encerradas[0]?.id ?? '')
   const camp = encerradas.find(c => c.id === campId) ?? encerradas[0]
 
   if (!camp) {
@@ -36,7 +36,7 @@ export default function Resultados({ campanhas }: { campanhas: Campanha[] }) {
     <div className="max-w-[1400px] mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div><p className="text-xs uppercase tracking-[0.16em] font-bold" style={{ color: GREEN }}>Análise consolidada</p><h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">Resultados</h1><p className="text-sm text-slate-500 mt-1">Somente campanhas encerradas aparecem nesta área.</p></div>
-        <select value={camp.id} onChange={e => setCampId(Number(e.target.value))} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-700 min-w-[270px]">{encerradas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+        <select value={camp.id} onChange={e => setCampId(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-700 min-w-[270px]">{encerradas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
       </div>
 
       <div className="rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 mb-5 flex gap-3 text-sm text-blue-900"><span className="mt-0.5">{Icons.shield({ width: 18, height: 18 })}</span><p>Os dados abaixo são <strong>anônimos e consolidados</strong>. Não há identificação individual nem campos de comentário livre.</p></div>

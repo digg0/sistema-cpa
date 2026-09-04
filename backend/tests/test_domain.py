@@ -117,3 +117,15 @@ def test_valida_respostas_obrigatorias_e_likert():
         [Answer(question_id=q1.id, valor="4"), Answer(question_id=q2.id, valor="Não")],
     )
     assert validated[1].valor == "nao"
+
+
+def test_rejeita_pergunta_estranha_e_resposta_duplicada():
+    question = Question(id=new_id(), texto="Domínio?", tipo=TipoPergunta.LIKERT)
+    outra = new_id()
+    with pytest.raises(ValidationError):
+        validate_answers([question], [Answer(question_id=outra, valor="4")])
+    with pytest.raises(ValidationError):
+        validate_answers(
+            [question],
+            [Answer(question_id=question.id, valor="4"), Answer(question_id=question.id, valor="5")],
+        )

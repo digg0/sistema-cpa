@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 480
     database_url: str = "sqlite:///./data/cpa.db"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:80"
+    cors_origin_regex: str | None = None
 
     # Trava de Segurança Fail-Fast
     @model_validator(mode="after")

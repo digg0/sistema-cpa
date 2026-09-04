@@ -25,6 +25,17 @@ interface AvaliacaoRaw {
   respondida_em: string | null
 }
 
+export type StatusAcessoAvaliacao =
+  | 'AVAILABLE'
+  | 'SCHEDULED'
+  | 'CLOSED'
+  | 'ALREADY_ANSWERED'
+  | 'NO_QUESTIONS'
+
+interface AvaliacaoDiretaRaw extends AvaliacaoRaw {
+  access_status: StatusAcessoAvaliacao
+}
+
 /** Formato já pronto pro que as telas existentes (MinhasAvaliacoes,
  * AvaliacoesRespondidas) esperam: datas em DD/MM/AAAA, respondidaEm já formatada. */
 export interface Avaliacao {
@@ -38,6 +49,10 @@ export interface Avaliacao {
   categoria: string
   status: StatusCampanha
   respondidaEm: string | null
+}
+
+export interface AvaliacaoDireta extends Avaliacao {
+  accessStatus: StatusAcessoAvaliacao
 }
 
 function mapAvaliacao(raw: AvaliacaoRaw): Avaliacao {
@@ -58,6 +73,11 @@ function mapAvaliacao(raw: AvaliacaoRaw): Avaliacao {
 export async function listAvaliacoes(signal?: AbortSignal): Promise<Avaliacao[]> {
   const raw = await apiClient.get<AvaliacaoRaw[]>('/api/v1/avaliacoes', { signal })
   return raw.map(mapAvaliacao)
+}
+
+export async function getAvaliacao(avaliacaoId: string, signal?: AbortSignal): Promise<AvaliacaoDireta> {
+  const raw = await apiClient.get<AvaliacaoDiretaRaw>(`/api/v1/avaliacoes/${avaliacaoId}`, { signal })
+  return { ...mapAvaliacao(raw), accessStatus: raw.access_status }
 }
 
 export async function enviarRespostas(

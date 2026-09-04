@@ -159,6 +159,10 @@ def test_fluxo_responder_e_segunda_tentativa(app_client):
         json=payload,
     )
     assert second.status_code == 409
+    direct = app_client.get(f"/api/v1/avaliacoes/{ativa['id']}", headers=auth_header(token))
+    assert direct.status_code == 200
+    assert direct.json()["access_status"] == "ALREADY_ANSWERED"
+    assert direct.json()["perguntas"] == []
     respondidas = app_client.get("/api/v1/avaliacoes/respondidas", headers=auth_header(token)).json()
     assert any(item["id"] == ativa["id"] for item in respondidas)
 
@@ -179,6 +183,74 @@ def test_nao_responde_campanha_agendada(app_client):
         json=payload,
     )
     assert response.status_code == 403
+
+
+def test_consulta_direta_retorna_estados_da_avaliacao(app_client):
+    token = login(app_client, "Discente", "20261001", "123456")
+    avaliacoes = app_client.get("/api/v1/avaliacoes", headers=auth_header(token)).json()
+
+    expected = {"Ativa": "AVAILABLE", "Agendada": "SCHEDULED", "Encerrada": "CLOSED"}
+    for status, access_status in expected.items():
+        avaliacao = next(item for item in avaliacoes if item["status"] == status)
+        response = app_client.get(f"/api/v1/avaliacoes/{avaliacao['id']}", headers=auth_header(token))
+        assert response.status_code == 200, response.text
+        assert response.json()["access_status"] == access_status
+        if access_status != "AVAILABLE":
+            assert response.json()["perguntas"] == []
+
+
+def test_consulta_direta_exige_autenticacao_e_uuid_valido(app_client):
+    assert app_client.get("/api/v1/avaliacoes/00000000-0000-0000-0000-000000000000").status_code == 401
+
+    token = login(app_client, "Discente", "20261001", "123456")
+    assert app_client.get("/api/v1/avaliacoes/id-invalido", headers=auth_header(token)).status_code == 422
+    missing = app_client.get(
+        "/api/v1/avaliacoes/00000000-0000-0000-0000-000000000000",
+        headers=auth_header(token),
+    )
+    assert missing.status_code == 404
+
+
+def test_consulta_direta_bloqueia_perfil_fora_do_publico(app_client):
+    docente = login(app_client, "Docente", "ana.beatriz@ifce.edu.br", "123456")
+    admin = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
+    campanha = app_client.get("/api/v1/campanhas", headers=auth_header(admin)).json()[0]
+
+    response = app_client.get(f"/api/v1/avaliacoes/{campanha['id']}", headers=auth_header(docente))
+    assert response.status_code == 403
+
+
+def test_consulta_direta_informa_quando_nao_ha_perguntas_para_o_perfil(app_client):
+    admin = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
+    questionario = app_client.post(
+        "/api/v1/questionarios",
+        headers=auth_header(admin),
+        json={
+            "nome": "Somente docentes",
+            "categoria": "Institucional",
+            "status": "Publicado",
+            "perguntas": [
+                {"texto": "Pergunta exclusiva", "tipo": "likert", "perfis_alvo": ["docente"]}
+            ],
+        },
+    ).json()
+    campanha = app_client.post(
+        "/api/v1/campanhas",
+        headers=auth_header(admin),
+        json={
+            "nome": "Campanha sem perguntas para discentes",
+            "publico": ["Discente"],
+            "questionario_id": questionario["id"],
+            "inicio": "2026-01-01",
+            "fim": "2099-12-31",
+        },
+    ).json()
+    discente = login(app_client, "Discente", "20261001", "123456")
+
+    response = app_client.get(f"/api/v1/avaliacoes/{campanha['id']}", headers=auth_header(discente))
+    assert response.status_code == 200, response.text
+    assert response.json()["access_status"] == "NO_QUESTIONS"
+    assert response.json()["perguntas"] == []
 
 
 def test_resultados_somente_encerrada(app_client):

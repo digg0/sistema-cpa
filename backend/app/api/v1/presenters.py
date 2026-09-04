@@ -5,7 +5,7 @@ from modules.questionnaires.domain.entities import Question, Questionnaire
 from modules.analytics.application.use_cases import Report
 
 from app.api.v1.schemas.auditoria import AuditLogOut
-from app.api.v1.schemas.avaliacoes import AvaliacaoOut
+from app.api.v1.schemas.avaliacoes import AvaliacaoDiretaOut, AvaliacaoOut
 from app.api.v1.schemas.campanhas import CampaignOut
 from app.api.v1.schemas.questionarios import QuestionOut, QuestionnaireDetailOut, QuestionnaireSummaryOut
 from app.api.v1.schemas.relatorios import ReportOut
@@ -84,6 +84,23 @@ def avaliacao_out(item: dict, user: User) -> AvaliacaoOut:
         categoria=campaign.categoria,
         status=campaign.status,
         respondida_em=item["respondida_em"],
+    )
+
+
+def avaliacao_direta_out(item: dict, user: User) -> AvaliacaoDiretaOut:
+    campaign: Campaign = item["campaign"]
+    return AvaliacaoDiretaOut(
+        id=campaign.id,
+        titulo=campaign.nome,
+        descricao=campaign.descricao or campaign.nome,
+        inicio=campaign.inicio,
+        fim=campaign.fim,
+        perguntas=[question_out(question) for question in item["perguntas"]],
+        publico=user.perfil,
+        categoria=campaign.categoria,
+        status=campaign.status,
+        respondida_em=item["respondida_em"],
+        access_status=item["access_status"],
     )
 
 

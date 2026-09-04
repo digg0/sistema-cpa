@@ -2,11 +2,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.v1.deps import get_current_user, get_list_my_evaluations, get_submit_response
-from app.api.v1.presenters import avaliacao_out
-from app.api.v1.schemas.avaliacoes import AvaliacaoOut, SubmitAnswersIn
+from app.api.v1.deps import get_current_user, get_evaluation, get_list_my_evaluations, get_submit_response
+from app.api.v1.presenters import avaliacao_direta_out, avaliacao_out
+from app.api.v1.schemas.avaliacoes import AvaliacaoDiretaOut, AvaliacaoOut, SubmitAnswersIn
 from modules.identity.domain.entities import User
-from modules.responses.application.use_cases import ListMyEvaluations, SubmitResponse
+from modules.responses.application.use_cases import GetEvaluation, ListMyEvaluations, SubmitResponse
 from modules.responses.domain.entities import Answer
 from shared.exceptions import ForbiddenError
 
@@ -34,6 +34,16 @@ def list_respondidas(
 ) -> list[AvaliacaoOut]:
     _ensure_participante(user)
     return [avaliacao_out(item, user) for item in use_case.execute(user) if item["respondida_em"]]
+
+
+@router.get("/{campaign_id}", response_model=AvaliacaoDiretaOut)
+def get_avaliacao(
+    campaign_id: UUID,
+    user: User = Depends(get_current_user),
+    use_case: GetEvaluation = Depends(get_evaluation),
+) -> AvaliacaoDiretaOut:
+    _ensure_participante(user)
+    return avaliacao_direta_out(use_case.execute(user, campaign_id), user)
 
 
 @router.post("/{campaign_id}/respostas", status_code=status.HTTP_201_CREATED)
