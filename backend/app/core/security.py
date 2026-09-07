@@ -21,12 +21,16 @@ class BcryptPasswordHasher:
 
 def create_access_token(user: User) -> str:
     settings = get_settings()
-    expires = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {
         "sub": str(user.id),
         "perfil": user.perfil.value,
         "nome": user.nome,
+        "iat": now,
         "exp": expires,
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
     }
     return jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
@@ -34,6 +38,12 @@ def create_access_token(user: User) -> str:
 def decode_access_token(token: str) -> dict:
     settings = get_settings()
     try:
-        return jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        return jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=["HS256"],
+            audience=settings.jwt_audience,
+            issuer=settings.jwt_issuer,
+        )
     except jwt.PyJWTError as exc:
         raise AuthenticationError("Sessão inválida ou expirada") from exc

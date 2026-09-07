@@ -17,7 +17,6 @@ import Resultados from './screens/Resultados'
 import Relatorios from './screens/Relatorios'
 import MinhasAvaliacoes from './screens/MinhasAvaliacoes'
 import AvaliacoesRespondidas from './screens/AvaliacoesRespondidas'
-import { campanhasBase, relatoriosBase, type Relatorio } from './data/mock'
 import { statusPorPeriodo } from './utils/date'
 
 type NavItem = { id: string; label: string; icon: ReactNode }
@@ -47,7 +46,7 @@ function Navigation({ items, active, onChange, badge, onLogout, mobile = false, 
       <nav className="flex-1 px-3 py-5 grid content-start gap-1.5" aria-label="Navegação principal">
         {items.map(item => { const selected=active===item.id; return <button key={item.id} onClick={()=>choose(item.id)} className="w-full flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm text-left transition" style={{background:selected?GREEN_L:'transparent',color:selected?'#1E5C2C':'#64748B',fontWeight:selected?700:500}}><span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{background:selected?'#DDF0E1':'#F8FAFC',color:selected?GREEN:'#94A3B8'}}>{item.icon}</span><span className="flex-1">{item.label}</span>{item.id==='minhas'&&badge!==undefined&&badge>0?<span className="min-w-6 h-6 px-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">{badge}</span>:null}</button> })}
       </nav>
-      <div className="px-3 py-4 border-t border-slate-100"><button onClick={()=>{onLogout();onClose?.()}} className="w-full flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"><span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">{Icons.logout({width:18,height:18})}</span>Sair do sistema</button>{!mobile&&<p className="text-center text-[10px] text-slate-300 mt-3">Protótipo · dados mockados</p>}</div>
+      <div className="px-3 py-4 border-t border-slate-100"><button onClick={()=>{onLogout();onClose?.()}} className="w-full flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"><span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">{Icons.logout({width:18,height:18})}</span>Sair do sistema</button>{!mobile&&<p className="text-center text-[10px] text-slate-300 mt-3">IFCE · Campus Tauá</p>}</div>
     </div>
   )
 }
@@ -73,7 +72,6 @@ export default function App() {
   const [questionarios,setQuestionarios]=useState<QuestionarioApi[]>([])
   const [questionariosLoading,setQuestionariosLoading]=useState(false)
   const [questionariosError,setQuestionariosError]=useState<string|null>(null)
-  const [relatorios,setRelatorios]=useState<Relatorio[]>(relatoriosBase)
   const [abrirNovaCampanha,setAbrirNovaCampanha]=useState(false)
   const [avaliacoes,setAvaliacoes]=useState<Avaliacao[]>([])
   const [avaliacoesLoading,setAvaliacoesLoading]=useState(false)
@@ -232,8 +230,6 @@ export default function App() {
     }
     await carregarQuestionarios()
   }
-  function gerarRelatorio(r:Relatorio){setRelatorios(v=>[r,...v])}
-
   if(checkingSession) return <SessionCheck/>
   if(!session) return <Login onLogin={login}/>
 
@@ -246,8 +242,8 @@ export default function App() {
     if(active==='campanhas') screen=<Campanhas campanhas={campanhas} onCreate={criarCampanha} loading={campanhasLoading} error={campanhasError} abrirNova={abrirNovaCampanha} onNovaAberta={()=>setAbrirNovaCampanha(false)}/>
     else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onDuplicate={duplicarQuestionario} loading={questionariosLoading} error={questionariosError}/>
     else if(active==='resultados') screen=<Resultados campanhas={campanhas}/>
-    else if(active==='relatorios') screen=<Relatorios relatorios={relatorios} onGenerate={gerarRelatorio}/>
-    else screen=<Dashboard campanhas={campanhasBase} onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
+    else if(active==='relatorios') screen=<Relatorios/>
+    else screen=<Dashboard onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
   } else {
     screen=active==='respondidas'
       ?<AvaliacoesRespondidas avaliacoes={avaliacoes} loading={avaliacoesLoading} error={avaliacoesError}/>

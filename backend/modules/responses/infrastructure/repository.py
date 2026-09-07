@@ -1,10 +1,12 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from infrastructure.db.models import AnswerModel, ParticipationModel, SubmissionModel
+from infrastructure.db.models import AnswerModel, ParticipationModel, QuestionModel, SubmissionModel
 from modules.responses.domain.entities import Answer, Participation, Submission
+from modules.responses.domain.services import likert_int
+from shared.enums import TipoPergunta
 from shared.ids import as_uuid, new_id
 
 
@@ -101,8 +103,18 @@ class SqlAlchemySubmissionRepository:
         )
         return [self._to_entity(row) for row in rows]
 
-    def list_all(self) -> list[Submission]:
-        rows = self._session.scalars(
-            select(SubmissionModel).options(selectinload(SubmissionModel.answers))
+    def count_all(self) -> int:
+        return int(self._session.scalar(select(func.count()).select_from(SubmissionModel)) or 0)
+
+    def list_likert_values(self) -> list[int]:
+        valores = self._session.scalars(
+            select(AnswerModel.valor)
+            .join(QuestionModel, QuestionModel.id == AnswerModel.question_id)
+            .where(QuestionModel.tipo == TipoPergunta.LIKERT.value)
         )
-        return [self._to_entity(row) for row in rows]
+        values: list[int] = []
+        for valor in valores:
+            parsed = likert_int(valor)
+            if parsed is not None:
+                values.append(parsed)
+        return values

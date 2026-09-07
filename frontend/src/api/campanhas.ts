@@ -56,7 +56,7 @@ export interface CriarCampanhaInput {
   fim: string
 }
 
-function mapCampanha(data: CampaignOut): CampanhaApi {
+export function mapCampanha(data: CampaignOut): CampanhaApi {
   return {
     id: data.id,
     nome: data.nome,

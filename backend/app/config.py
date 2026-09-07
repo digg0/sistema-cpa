@@ -9,9 +9,14 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     secret_key: str = "dev-secret-change-me-use-32-bytes+"
-    access_token_expire_minutes: int = 480
+    access_token_expire_minutes: int = 60
+    jwt_issuer: str = "sistema-cpa"
+    jwt_audience: str = "sistema-cpa-api"
     database_url: str = "sqlite:///./data/cpa.db"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:80"
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 120
+    rate_limit_window_seconds: int = 60
 
     # Trava de Segurança Fail-Fast
     @model_validator(mode="after")

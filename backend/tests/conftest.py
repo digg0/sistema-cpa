@@ -22,6 +22,7 @@ hasher = BcryptPasswordHasher()
 def app_client(tmp_path, monkeypatch) -> Iterator[TestClient]:
     db_path = tmp_path / "cpa-test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
     get_settings.cache_clear()
     reset_engine()
     engine = get_engine()

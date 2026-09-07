@@ -39,8 +39,7 @@ class GetDashboard:
 
     def execute(self) -> dict:
         campaigns = self._campaigns.list_all()
-        all_submissions = self._submissions.list_all()
-        likert_values = collect_likert_values(all_submissions)
+        likert_values = self._submissions.list_likert_values()
         participacao_por_perfil = []
         for perfil in PARTICIPANTES:
             eligible = self._users.count_by_perfis([perfil])
@@ -64,7 +63,7 @@ class GetDashboard:
             "satisfacao": likert_distribution(likert_values),
             "media_geral": average(likert_values),
             "satisfacao_geral": satisfaction_pct(likert_values),
-            "total_respostas": len(all_submissions),
+            "total_respostas": self._submissions.count_all(),
         }
 
 
