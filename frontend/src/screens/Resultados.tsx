@@ -5,25 +5,6 @@ import { ApiException } from '../api/client'
 import type { CampanhaApi } from '../api/campanhas'
 import { obterResultados, type ResultadosApi } from '../api/resultados'
 
-function Radar({ dimensoes }: { dimensoes: ResultadosApi['dimensoes'] }) {
-  const dims = dimensoes.slice(0, 6)
-  const cx = 120, cy = 110, r = 78
-  const point = (i: number, scale: number) => {
-    const a = -Math.PI / 2 + (i * Math.PI * 2) / dims.length
-    return [cx + Math.cos(a) * r * scale, cy + Math.sin(a) * r * scale]
-  }
-  const polygon = (scale: number) => dims.map((_, i) => point(i, scale).join(',')).join(' ')
-  const dataPoints = dims.map((d, i) => point(i, d.media / 5).join(',')).join(' ')
-  return (
-    <svg viewBox="0 0 240 225" className="w-full max-w-[320px] mx-auto">
-      {[.25,.5,.75,1].map(s => <polygon key={s} points={polygon(s)} fill="none" stroke="#E2E8F0" strokeWidth="1" />)}
-      {dims.map((_, i) => { const [x,y]=point(i,1); return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#E2E8F0"/> })}
-      <polygon points={dataPoints} fill="rgba(37,99,235,.16)" stroke="#2563EB" strokeWidth="2.5" />
-      {dims.map((d,i)=>{ const [x,y]=point(i,d.media/5); return <circle key={d.nome} cx={x} cy={y} r="3.5" fill="#2563EB"/> })}
-    </svg>
-  )
-}
-
 export default function Resultados({ campanhas }: { campanhas: CampanhaApi[] }) {
   const encerradas = useMemo(() => campanhas.filter(c => c.status === 'Encerrada'), [campanhas])
   const [campId, setCampId] = useState<string>('')
@@ -82,21 +63,11 @@ export default function Resultados({ campanhas }: { campanhas: CampanhaApi[] }) 
             ].map(k => <Card key={k.label} className="p-5"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">{k.label}</p><div className="flex items-end justify-between mt-2"><p className="text-3xl font-bold" style={{ color:k.color }}>{k.value}</p><span className="w-9 h-9 rounded-xl" style={{ background:k.bg }}/></div></Card>)}
           </div>
 
-          <div className="responsive-grid-2 grid grid-cols-[1.2fr_.8fr] gap-4 mb-5">
+          <div className="mb-5">
             <Card><CardHead title="Resultados por Dimensão" sub="Média de 1 a 5 e comparação com o ciclo anterior"/>
               <div className="p-5 grid gap-4">
                 {resultados.dimensoes.length === 0 && <p className="text-sm text-slate-400 text-center py-4">Sem dimensões suficientes pra consolidar ainda.</p>}
                 {resultados.dimensoes.map(d => { const delta=d.media-d.anterior; const color=d.media>=4.2?'#2A7A3B':d.media>=3.8?'#2563EB':'#D97706'; return <div key={d.nome}><div className="flex items-center justify-between gap-3 mb-1.5"><span className="text-sm font-medium text-slate-600">{d.nome}</span><div className="flex items-center gap-3"><span className="text-[11px] font-semibold" style={{ color:delta>=0?'#15803D':'#B45309' }}>{delta>=0?'↑':'↓'} {Math.abs(delta).toFixed(1)}</span><strong className="text-sm" style={{ color }}>{d.media.toFixed(1)}</strong></div></div><div className="h-2.5 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full" style={{ width:`${d.media/5*100}%`, background:color }}/></div></div>})}
-              </div>
-            </Card>
-            <Card><CardHead title="Radar das Dimensões" sub="Visão comparativa do desempenho"/>
-              <div className="px-5 pt-2 pb-5">
-                {resultados.dimensoes.length > 0 ? (
-                  <>
-                    <Radar dimensoes={resultados.dimensoes}/>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-1">{resultados.dimensoes.slice(0,6).map((d,i)=><div key={d.nome} className="flex items-center gap-2 text-[11px] text-slate-500"><span className="w-5 h-5 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center font-bold">{i+1}</span><span className="truncate">{d.nome}</span></div>)}</div>
-                  </>
-                ) : <p className="text-sm text-slate-400 text-center py-8">Sem dados suficientes.</p>}
               </div>
             </Card>
           </div>
