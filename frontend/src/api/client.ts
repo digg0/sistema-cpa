@@ -97,6 +97,50 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return (await response.json()) as T
 }
 
+async function requestBlob(endpoint: string, options: RequestInit = {}): Promise<{ blob: Blob; filename: string }> {
+  const url = `${BASE_URL}${endpoint}`
+  const token = currentToken()
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> | undefined),
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  let response: Response
+  try {
+    response = await fetch(url, { ...options, headers })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    throw new ApiException('Não foi possível conectar ao servidor. Tente novamente em instantes.', 0)
+  }
+
+  if (!response.ok) {
+    let body: unknown = null
+    const contentType = response.headers.get('content-type') ?? ''
+    if (contentType.includes('application/json')) {
+      try {
+        body = await response.json()
+      } catch {
+        body = null
+      }
+    }
+    const code = body && typeof body === 'object' ? (body as { code?: string }).code : undefined
+    throw new ApiException(
+      extractErrorMessage(body, response.statusText || 'Erro desconhecido na API'),
+      response.status,
+      code,
+    )
+  }
+
+  const disposition = response.headers.get('content-disposition') ?? ''
+  const match = /filename="?([^"]+)"?/i.exec(disposition)
+  return {
+    blob: await response.blob(),
+    filename: match?.[1] ?? 'relatorio',
+  }
+}
+
 export const apiClient = {
   get: <T>(endpoint: string, options?: RequestInit) => request<T>(endpoint, { ...options, method: 'GET' }),
 
@@ -107,4 +151,6 @@ export const apiClient = {
     request<T>(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) }),
 
   delete: <T>(endpoint: string, options?: RequestInit) => request<T>(endpoint, { ...options, method: 'DELETE' }),
+
+  getBlob: (endpoint: string, options?: RequestInit) => requestBlob(endpoint, { ...options, method: 'GET' }),
 }

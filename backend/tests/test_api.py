@@ -197,6 +197,30 @@ def test_dashboard_e_relatorio(app_client):
     admin = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
     dashboard = app_client.get("/api/v1/dashboard", headers=auth_header(admin))
     assert dashboard.status_code == 200
+    body = dashboard.json()
+    assert "historico" in body
+    assert "satisfacao" in body
+    assert "participacao_por_perfil" in body
+    assert body["total_respostas"] >= 0
+
+    discente = login(app_client, "Discente", "20261001", "123456")
+    avaliacoes = app_client.get("/api/v1/avaliacoes", headers=auth_header(discente)).json()
+    ativa = next(item for item in avaliacoes if item["status"] == "Ativa")
+    enviado = app_client.post(
+        f"/api/v1/avaliacoes/{ativa['id']}/respostas",
+        headers=auth_header(discente),
+        json={
+            "respostas": [
+                {"pergunta_id": ativa["perguntas"][0]["id"], "valor": "5"},
+                {"pergunta_id": ativa["perguntas"][1]["id"], "valor": "sim"},
+            ]
+        },
+    )
+    assert enviado.status_code == 201, enviado.text
+    consolidado = app_client.get("/api/v1/dashboard", headers=auth_header(admin))
+    assert consolidado.status_code == 200
+    assert consolidado.json()["total_respostas"] >= 1
+    assert sum(item["n"] for item in consolidado.json()["satisfacao"]) >= 1
     created = app_client.post(
         "/api/v1/relatorios",
         headers=auth_header(admin),
