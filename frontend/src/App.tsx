@@ -6,6 +6,8 @@ import { ApiException } from './api/client'
 import { criarCampanha as criarCampanhaApi, listarCampanhas, type CampanhaApi, type CriarCampanhaInput } from './api/campanhas'
 import { enviarRespostas, listAvaliacoes, type Avaliacao } from './api/avaliacoes'
 import { duplicarQuestionario as duplicarQuestionarioApi, listarQuestionarios, type QuestionarioApi } from './api/questionarios'
+import { obterDashboard, type DashboardApi } from './api/dashboard'
+import { gerarRelatorio as gerarRelatorioApi, listarRelatorios, type GerarRelatorioInput, type RelatorioApi } from './api/relatorios'
 import IfceLogo from './components/IfceLogo'
 import { Icons } from './components/Icons'
 import { GREEN, GREEN_L } from './components/ui'
@@ -17,7 +19,6 @@ import Resultados from './screens/Resultados'
 import Relatorios from './screens/Relatorios'
 import MinhasAvaliacoes from './screens/MinhasAvaliacoes'
 import AvaliacoesRespondidas from './screens/AvaliacoesRespondidas'
-import { campanhasBase, relatoriosBase, type Relatorio } from './data/mock'
 import { statusPorPeriodo } from './utils/date'
 
 type NavItem = { id: string; label: string; icon: ReactNode }
@@ -73,7 +74,12 @@ export default function App() {
   const [questionarios,setQuestionarios]=useState<QuestionarioApi[]>([])
   const [questionariosLoading,setQuestionariosLoading]=useState(false)
   const [questionariosError,setQuestionariosError]=useState<string|null>(null)
-  const [relatorios,setRelatorios]=useState<Relatorio[]>(relatoriosBase)
+  const [relatorios,setRelatorios]=useState<RelatorioApi[]>([])
+  const [relatoriosLoading,setRelatoriosLoading]=useState(false)
+  const [relatoriosError,setRelatoriosError]=useState<string|null>(null)
+  const [dashboard,setDashboard]=useState<DashboardApi|null>(null)
+  const [dashboardLoading,setDashboardLoading]=useState(false)
+  const [dashboardError,setDashboardError]=useState<string|null>(null)
   const [abrirNovaCampanha,setAbrirNovaCampanha]=useState(false)
   const [avaliacoes,setAvaliacoes]=useState<Avaliacao[]>([])
   const [avaliacoesLoading,setAvaliacoesLoading]=useState(false)
@@ -159,6 +165,40 @@ export default function App() {
       .finally(()=>setQuestionariosLoading(false))
   },[session])
 
+  const carregarDashboard=useCallback((signal?:AbortSignal)=>{
+    if(!session || session.perfil!=='Coordenador CPA'){
+      setDashboard(null)
+      setDashboardError(null)
+      return Promise.resolve()
+    }
+    setDashboardLoading(true)
+    setDashboardError(null)
+    return obterDashboard(signal)
+      .then(setDashboard)
+      .catch(error=>{
+        if(error instanceof DOMException && error.name==='AbortError') return
+        setDashboardError(error instanceof ApiException ? error.message : 'Não foi possível carregar o painel.')
+      })
+      .finally(()=>setDashboardLoading(false))
+  },[session])
+
+  const carregarRelatorios=useCallback((signal?:AbortSignal)=>{
+    if(!session || session.perfil!=='Coordenador CPA'){
+      setRelatorios([])
+      setRelatoriosError(null)
+      return Promise.resolve()
+    }
+    setRelatoriosLoading(true)
+    setRelatoriosError(null)
+    return listarRelatorios(signal)
+      .then(setRelatorios)
+      .catch(error=>{
+        if(error instanceof DOMException && error.name==='AbortError') return
+        setRelatoriosError(error instanceof ApiException ? error.message : 'Não foi possível carregar os relatórios.')
+      })
+      .finally(()=>setRelatoriosLoading(false))
+  },[session])
+
   const carregarAvaliacoes=useCallback((signal?:AbortSignal)=>{
     if(!session || session.perfil==='Coordenador CPA'){setAvaliacoes([]);return Promise.resolve()}
     setAvaliacoesLoading(true)
@@ -183,6 +223,18 @@ export default function App() {
     carregarQuestionarios(controller.signal)
     return ()=>controller.abort()
   },[carregarQuestionarios])
+
+  useEffect(()=>{
+    const controller=new AbortController()
+    carregarDashboard(controller.signal)
+    return ()=>controller.abort()
+  },[carregarDashboard])
+
+  useEffect(()=>{
+    const controller=new AbortController()
+    carregarRelatorios(controller.signal)
+    return ()=>controller.abort()
+  },[carregarRelatorios])
 
   useEffect(()=>{
     const controller=new AbortController()
@@ -232,7 +284,14 @@ export default function App() {
     }
     await carregarQuestionarios()
   }
-  function gerarRelatorio(r:Relatorio){setRelatorios(v=>[r,...v])}
+  async function gerarRelatorio(input:GerarRelatorioInput){
+    try{
+      const criado=await gerarRelatorioApi(input)
+      setRelatorios(atual=>[criado,...atual])
+    }catch(error){
+      throw new Error(error instanceof ApiException ? error.message : 'Não foi possível gerar o relatório. Tente novamente.')
+    }
+  }
 
   if(checkingSession) return <SessionCheck/>
   if(!session) return <Login onLogin={login}/>
@@ -246,8 +305,8 @@ export default function App() {
     if(active==='campanhas') screen=<Campanhas campanhas={campanhas} onCreate={criarCampanha} loading={campanhasLoading} error={campanhasError} abrirNova={abrirNovaCampanha} onNovaAberta={()=>setAbrirNovaCampanha(false)}/>
     else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onDuplicate={duplicarQuestionario} loading={questionariosLoading} error={questionariosError}/>
     else if(active==='resultados') screen=<Resultados campanhas={campanhas}/>
-    else if(active==='relatorios') screen=<Relatorios relatorios={relatorios} onGenerate={gerarRelatorio}/>
-    else screen=<Dashboard campanhas={campanhasBase} onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
+    else if(active==='relatorios') screen=<Relatorios relatorios={relatorios} historico={dashboard?.historico ?? []} loading={relatoriosLoading} error={relatoriosError} onGenerate={gerarRelatorio}/>
+    else screen=<Dashboard campanhas={campanhas} dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
   } else {
     screen=active==='respondidas'
       ?<AvaliacoesRespondidas avaliacoes={avaliacoes} loading={avaliacoesLoading} error={avaliacoesError}/>
