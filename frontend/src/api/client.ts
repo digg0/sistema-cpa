@@ -53,12 +53,12 @@ function extractErrorMessage(body: unknown, fallback: string): string {
   return fallback
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function fetchAuthenticated(endpoint: string, options: RequestInit, jsonBody: boolean): Promise<Response> {
   const url = `${BASE_URL}${endpoint}`
   const token = currentToken()
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(jsonBody ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers as Record<string, string> | undefined),
   }
   if (token) {
@@ -91,10 +91,34 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     )
   }
 
+  return response
+}
+
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetchAuthenticated(endpoint, options, true)
   if (response.status === 204) {
     return null as T
   }
   return (await response.json()) as T
+}
+
+function filenameFromContentDisposition(value: string | null): string | null {
+  if (!value) return null
+  const match = /filename="?([^";]+)"?/i.exec(value)
+  return match ? match[1] : null
+}
+
+/** Baixa um arquivo autenticado (ex.: relatório) e devolve o blob pronto pra
+ * salvar, junto do nome de arquivo que o backend sugeriu (Content-Disposition).
+ * Não usa `apiClient.get` porque a resposta não é JSON. */
+export async function apiDownload(
+  endpoint: string,
+  options?: RequestInit,
+): Promise<{ blob: Blob; filename: string | null }> {
+  const response = await fetchAuthenticated(endpoint, { ...options, method: 'GET' }, false)
+  const blob = await response.blob()
+  const filename = filenameFromContentDisposition(response.headers.get('content-disposition'))
+  return { blob, filename }
 }
 
 export const apiClient = {
