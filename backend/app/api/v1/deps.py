@@ -34,6 +34,7 @@ from modules.questionnaires.application.use_cases import (
     DuplicateQuestionnaire,
     GetQuestionnaire,
     ListQuestionnaires,
+    UpdateQuestionnaire,
 )
 from modules.questionnaires.infrastructure.repository import SqlAlchemyQuestionnaireRepository
 from modules.responses.application.use_cases import ListMyEvaluations, SubmitResponse
@@ -105,6 +106,10 @@ def get_create_questionnaire(session: Session = Depends(get_db)):
 
 def get_duplicate_questionnaire(session: Session = Depends(get_db)):
     return DuplicateQuestionnaire(SqlAlchemyQuestionnaireRepository(session))
+
+
+def get_update_questionnaire(session: Session = Depends(get_db)):
+    return UpdateQuestionnaire(SqlAlchemyQuestionnaireRepository(session))
 
 
 def get_get_questionnaire(session: Session = Depends(get_db)):

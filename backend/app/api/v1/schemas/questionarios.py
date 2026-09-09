@@ -34,6 +34,13 @@ class CreateQuestionnaireIn(BaseModel):
     quantidade_perguntas: int | None = Field(default=None, ge=1, le=50)
 
 
+class UpdateQuestionnaireIn(BaseModel):
+    nome: str
+    categoria: str
+    status: StatusQuestionario
+    perguntas: list[QuestionIn]
+
+
 class QuestionnaireSummaryOut(BaseModel):
     id: UUID
     nome: str

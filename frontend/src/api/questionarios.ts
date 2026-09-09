@@ -29,6 +29,21 @@ export interface QuestionarioDetalheApi extends QuestionarioApi {
   itens: PerguntaDetalheApi[]
 }
 
+export interface PerguntaInput {
+  texto: string
+  tipo: TipoPergunta
+  opcoes?: string[] | null
+  dimensao?: string | null
+  perfisAlvo?: string[]
+}
+
+export interface EditarQuestionarioInput {
+  nome: string
+  categoria: string
+  status: 'Rascunho' | 'Publicado'
+  perguntas: PerguntaInput[]
+}
+
 interface QuestionOut {
   id: string
   texto: string
@@ -98,4 +113,31 @@ export async function obterQuestionario(id: string, signal?: AbortSignal): Promi
 export async function duplicarQuestionario(id: string, signal?: AbortSignal): Promise<QuestionarioApi> {
   const data = await apiClient.post<QuestionnaireDetailOut>(`/api/v1/questionarios/${id}/duplicar`, undefined, { signal })
   return mapQuestionario(data)
+}
+
+/** Só funciona enquanto o questionário não tem respostas registradas
+ * (`locked === false`) — a API rejeita com 409 caso contrário; a alternativa
+ * nesse caso é duplicar o modelo (ver `duplicarQuestionario`). */
+export async function editarQuestionario(
+  id: string,
+  input: EditarQuestionarioInput,
+  signal?: AbortSignal,
+): Promise<QuestionarioDetalheApi> {
+  const data = await apiClient.put<QuestionnaireDetailOut>(
+    `/api/v1/questionarios/${id}`,
+    {
+      nome: input.nome.trim(),
+      categoria: input.categoria,
+      status: input.status,
+      perguntas: input.perguntas.map(pergunta => ({
+        texto: pergunta.texto,
+        tipo: pergunta.tipo,
+        opcoes: pergunta.opcoes ?? null,
+        dimensao: pergunta.dimensao || null,
+        perfis_alvo: pergunta.perfisAlvo,
+      })),
+    },
+    { signal },
+  )
+  return { ...mapQuestionario(data), itens: data.itens.map(mapPergunta) }
 }

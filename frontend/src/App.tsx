@@ -5,7 +5,13 @@ import { clearSession, isSessionValid, loadSession, saveSession, type AuthSessio
 import { ApiException } from './api/client'
 import { criarCampanha as criarCampanhaApi, listarCampanhas, type CampanhaApi, type CriarCampanhaInput } from './api/campanhas'
 import { enviarRespostas, listAvaliacoes, type Avaliacao } from './api/avaliacoes'
-import { duplicarQuestionario as duplicarQuestionarioApi, listarQuestionarios, type QuestionarioApi } from './api/questionarios'
+import {
+  duplicarQuestionario as duplicarQuestionarioApi,
+  editarQuestionario as editarQuestionarioApi,
+  listarQuestionarios,
+  type EditarQuestionarioInput,
+  type QuestionarioApi,
+} from './api/questionarios'
 import IfceLogo from './components/IfceLogo'
 import { Icons } from './components/Icons'
 import { GREEN, GREEN_L } from './components/ui'
@@ -233,6 +239,14 @@ export default function App() {
     }
     await carregarQuestionarios()
   }
+  async function editarQuestionario(id:string, input:EditarQuestionarioInput){
+    try{
+      await editarQuestionarioApi(id, input)
+    }catch(error){
+      throw new Error(error instanceof ApiException ? error.message : 'Não foi possível salvar as alterações. Tente novamente.')
+    }
+    await carregarQuestionarios()
+  }
   if(checkingSession) return <SessionCheck/>
   if(!session) return <Login onLogin={login}/>
 
@@ -243,7 +257,7 @@ export default function App() {
   let screen:ReactNode
   if(admin){
     if(active==='campanhas') screen=<Campanhas campanhas={campanhas} onCreate={criarCampanha} loading={campanhasLoading} error={campanhasError} abrirNova={abrirNovaCampanha} onNovaAberta={()=>setAbrirNovaCampanha(false)}/>
-    else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onDuplicate={duplicarQuestionario} loading={questionariosLoading} error={questionariosError}/>
+    else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onDuplicate={duplicarQuestionario} onEdit={editarQuestionario} loading={questionariosLoading} error={questionariosError}/>
     else if(active==='resultados') screen=<Resultados campanhas={campanhas}/>
     else if(active==='relatorios') screen=<Relatorios/>
     else screen=<Dashboard onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
