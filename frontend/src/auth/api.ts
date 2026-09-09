@@ -97,6 +97,22 @@ export async function loginWithApi(
   return createSession(data.access_token, data.nome, data.perfil)
 }
 
+/** Avisa o backend pra revogar o token em uso (RF-04). Chamada best-effort:
+ * o logout no navegador (limpar a sessão local) acontece de qualquer forma,
+ * mesmo que essa requisição falhe — o usuário não pode ficar preso na tela
+ * por causa de uma falha de rede num logout. */
+export async function logoutWithApi(accessToken: string): Promise<void> {
+  try {
+    await fetch(apiUrl('/api/v1/auth/logout'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+  } catch {
+    // Sem sinal, sem problema: o token expira sozinho em até 1h (ver RNF de
+    // segurança) e a sessão local já foi encerrada por quem chamou esta função.
+  }
+}
+
 export async function getCurrentUser(accessToken: string, signal?: AbortSignal): Promise<CurrentUserResponse> {
   let response: Response
 

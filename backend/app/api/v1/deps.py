@@ -26,9 +26,9 @@ from modules.audit.application.use_cases import (
 from modules.audit.infrastructure.repository import SqlAlchemyAuditLogRepository
 from modules.campaigns.application.use_cases import CreateCampaign, GetCampaign, ListCampaigns
 from modules.campaigns.infrastructure.repository import SqlAlchemyCampaignRepository
-from modules.identity.application.use_cases import AuthenticateUser
+from modules.identity.application.use_cases import AuthenticateUser, Logout
 from modules.identity.domain.entities import User
-from modules.identity.infrastructure.repository import SqlAlchemyUserRepository
+from modules.identity.infrastructure.repository import SqlAlchemyRevokedTokenRepository, SqlAlchemyUserRepository
 from modules.questionnaires.application.use_cases import (
     CreateQuestionnaire,
     DuplicateQuestionnaire,
@@ -64,14 +64,22 @@ def get_hasher() -> BcryptPasswordHasher:
     return BcryptPasswordHasher()
 
 
-def get_current_user(
+def get_token_claims(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
-    session: Session = Depends(get_db),
-) -> User:
+) -> dict:
     if credentials is None:
         raise AuthenticationError("Autenticação obrigatória")
-    payload = decode_access_token(credentials.credentials)
-    user = SqlAlchemyUserRepository(session).get_by_id(as_uuid(payload["sub"]))
+    return decode_access_token(credentials.credentials)
+
+
+def get_current_user(
+    claims: dict = Depends(get_token_claims),
+    session: Session = Depends(get_db),
+) -> User:
+    jti = claims.get("jti")
+    if jti and SqlAlchemyRevokedTokenRepository(session).is_revoked(jti):
+        raise AuthenticationError("Sessão inválida ou expirada")
+    user = SqlAlchemyUserRepository(session).get_by_id(as_uuid(claims["sub"]))
     if user is None:
         raise AuthenticationError("Sessão inválida ou expirada")
     return user
@@ -85,6 +93,10 @@ def require_coordenador(user: User = Depends(get_current_user)) -> User:
 
 def get_authenticate_user(session: Session = Depends(get_db), hasher: BcryptPasswordHasher = Depends(get_hasher)):
     return AuthenticateUser(SqlAlchemyUserRepository(session), hasher)
+
+
+def get_logout(session: Session = Depends(get_db)):
+    return Logout(SqlAlchemyRevokedTokenRepository(session))
 
 
 def get_create_questionnaire(session: Session = Depends(get_db)):

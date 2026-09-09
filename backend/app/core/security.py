@@ -6,6 +6,7 @@ import jwt
 from app.config import get_settings
 from modules.identity.domain.entities import User
 from shared.exceptions import AuthenticationError
+from shared.ids import new_id
 
 
 class BcryptPasswordHasher:
@@ -31,6 +32,10 @@ def create_access_token(user: User) -> str:
         "exp": expires,
         "iss": settings.jwt_issuer,
         "aud": settings.jwt_audience,
+        # Identifica esta emissão específica do token — é o que permite ao
+        # logout (RF-04) revogar só esta sessão, sem precisar invalidar a
+        # senha nem as sessões abertas em outros dispositivos.
+        "jti": str(new_id()),
     }
     return jwt.encode(payload, settings.secret_key, algorithm="HS256")
 

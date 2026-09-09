@@ -5,6 +5,17 @@ from modules.responses.domain.entities import Submission
 from modules.responses.domain.services import likert_int
 from shared.enums import LIKERT_COLORS, LIKERT_LABELS
 
+# Nenhum resultado agregado (média, distribuição, dimensão, questão crítica...)
+# pode ser exibido se representar menos que essa quantidade de pessoas — senão
+# um grupo pequeno demais (ex.: turma com 1-2 alunos) vira identificável na
+# prática, mesmo sem nenhum campo explícito ligando resposta a pessoa.
+K_ANONIMATO_MINIMO = 5
+
+
+def suprimir_por_k_anonimato(quantidade_pessoas: int, minimo: int = K_ANONIMATO_MINIMO) -> bool:
+    """True quando o grupo é pequeno demais pra expor um resultado com segurança."""
+    return quantidade_pessoas < minimo
+
 
 def collect_likert_values(submissions: list[Submission], questions: list[Question] | None = None) -> list[int]:
     allowed = {question.id for question in questions} if questions else None
@@ -47,7 +58,9 @@ def likert_distribution(values: list[int]) -> list[dict]:
     return items
 
 
-def dimension_averages(submissions: list[Submission], questions: list[Question]) -> list[dict]:
+def dimension_averages(
+    submissions: list[Submission], questions: list[Question], minimo: int = K_ANONIMATO_MINIMO
+) -> list[dict]:
     by_dimension: dict[str, list[int]] = defaultdict(list)
     for question in questions:
         if not question.dimensao:
@@ -57,14 +70,17 @@ def dimension_averages(submissions: list[Submission], questions: list[Question])
     return [
         {"nome": nome, "media": average(vals), "anterior": average(vals)}
         for nome, vals in by_dimension.items()
+        if not suprimir_por_k_anonimato(len(vals), minimo)
     ]
 
 
-def critical_questions(submissions: list[Submission], questions: list[Question], limit: int = 3) -> list[dict]:
+def critical_questions(
+    submissions: list[Submission], questions: list[Question], limit: int = 3, minimo: int = K_ANONIMATO_MINIMO
+) -> list[dict]:
     ranked = []
     for question in questions:
         values = collect_likert_values(submissions, [question])
-        if not values:
+        if suprimir_por_k_anonimato(len(values), minimo):
             continue
         ranked.append(
             {

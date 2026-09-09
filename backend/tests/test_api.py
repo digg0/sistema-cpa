@@ -25,6 +25,30 @@ def test_login_dos_perfis(app_client):
         assert body["access_token"]
 
 
+def test_logout_revoga_o_token_em_uso(app_client):
+    token = login(app_client, "Discente", "20261001", "123456")
+
+    antes = app_client.get("/api/v1/auth/me", headers=auth_header(token))
+    assert antes.status_code == 200
+
+    logout = app_client.post("/api/v1/auth/logout", headers=auth_header(token))
+    assert logout.status_code == 204
+
+    depois = app_client.get("/api/v1/auth/me", headers=auth_header(token))
+    assert depois.status_code == 401
+
+    admin = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
+    logs = app_client.get(
+        "/api/v1/auditoria", headers=auth_header(admin), params={"acao": "logout"}
+    ).json()
+    assert any(item["resultado"] == "sucesso" for item in logs)
+
+
+def test_logout_sem_token_e_rejeitado(app_client):
+    response = app_client.post("/api/v1/auth/logout")
+    assert response.status_code == 401
+
+
 def test_login_rejeita_senha_errada(app_client):
     response = app_client.post(
         "/api/v1/auth/login",
@@ -219,8 +243,12 @@ def test_dashboard_e_relatorio(app_client):
     assert enviado.status_code == 201, enviado.text
     consolidado = app_client.get("/api/v1/dashboard", headers=auth_header(admin))
     assert consolidado.status_code == 200
-    assert consolidado.json()["total_respostas"] >= 1
-    assert sum(item["n"] for item in consolidado.json()["satisfacao"]) >= 1
+    corpo = consolidado.json()
+    assert corpo["total_respostas"] >= 1
+    # k-anonimato: com só 1 resposta no total, a distribuição de satisfação
+    # fica suprimida (só a contagem bruta, que é operacional, permanece).
+    assert corpo["dados_insuficientes"] is True
+    assert sum(item["n"] for item in corpo["satisfacao"]) == 0
     created = app_client.post(
         "/api/v1/relatorios",
         headers=auth_header(admin),

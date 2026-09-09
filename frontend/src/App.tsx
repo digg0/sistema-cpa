@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import AuthGuard from './auth/AuthGuard'
-import { ApiError, getCurrentUser } from './auth/api'
+import { ApiError, getCurrentUser, logoutWithApi } from './auth/api'
 import { clearSession, isSessionValid, loadSession, saveSession, type AuthSession } from './auth/session'
 import { ApiException } from './api/client'
 import { criarCampanha as criarCampanhaApi, listarCampanhas, type CampanhaApi, type CriarCampanhaInput } from './api/campanhas'
@@ -78,11 +78,14 @@ export default function App() {
   const [avaliacoesError,setAvaliacoesError]=useState<string|null>(null)
 
   const logout=useCallback(()=>{
+    // Best-effort: revoga o token no servidor (RF-04), mas a sessão local
+    // é encerrada de qualquer forma, mesmo se essa chamada falhar.
+    if(session) logoutWithApi(session.accessToken)
     clearSession()
     setSession(null)
     setActive('dashboard')
     setMobileMenu(false)
-  },[])
+  },[session])
 
   useEffect(()=>{
     const current=session

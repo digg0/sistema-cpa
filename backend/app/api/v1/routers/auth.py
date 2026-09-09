@@ -1,17 +1,22 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, status
 
 from app.api.v1.deps import (
     get_audit_recorder,
     get_authenticate_user,
     get_check_login_rate_limit,
     get_current_user,
+    get_logout,
+    get_record_audit_log,
+    get_token_claims,
 )
 from app.api.v1.schemas.auth import LoginIn, LoginOut, UserOut
 from app.core.audit import AuditRecorder
 from app.core.security import create_access_token
-from modules.audit.application.use_cases import CheckLoginRateLimit
+from modules.audit.application.use_cases import CheckLoginRateLimit, RecordAuditLog
 from modules.audit.domain.services import LOGIN_ATTEMPT_LIMIT, LOGIN_BLOCK_DURATION
-from modules.identity.application.use_cases import AuthenticateUser
+from modules.identity.application.use_cases import AuthenticateUser, Logout
 from modules.identity.domain.entities import User
 from modules.identity.domain.services import normalize_identificador
 from shared.exceptions import AuthenticationError, TooManyRequestsError
@@ -76,3 +81,24 @@ def login(
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)) -> UserOut:
     return UserOut(id=str(user.id), nome=user.nome, perfil=user.perfil)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(
+    claims: dict = Depends(get_token_claims),
+    user: User = Depends(get_current_user),
+    use_case: Logout = Depends(get_logout),
+    audit: RecordAuditLog = Depends(get_record_audit_log),
+) -> None:
+    jti = claims.get("jti")
+    if jti:
+        expires_at = datetime.fromtimestamp(claims["exp"], tz=timezone.utc)
+        use_case.execute(jti, expires_at)
+    audit.execute(
+        ator_id=user.id,
+        ator_perfil=user.perfil.value,
+        acao="logout",
+        recurso="sessao",
+        recurso_id=str(user.id),
+        resultado="sucesso",
+    )

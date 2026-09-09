@@ -27,6 +27,10 @@ export interface ResultadosApi {
   dimensoes: DimensaoApi[]
   distribuicao: DistribuicaoItemApi[]
   questoesCriticas: QuestaoCriticaApi[]
+  /** k-anonimato: true quando a campanha tem poucos respondentes demais e os
+   * campos acima vêm zerados/vazios de propósito, pra não arriscar reidentificar
+   * quem respondeu. */
+  dadosInsuficientes: boolean
 }
 
 interface CampaignOut {
@@ -43,6 +47,7 @@ interface ResultsOut {
   dimensoes: DimensaoApi[]
   distribuicao: DistribuicaoItemApi[]
   questoes_criticas: QuestaoCriticaApi[]
+  dados_insuficientes: boolean
 }
 
 export async function obterResultados(campanhaId: string, signal?: AbortSignal): Promise<ResultadosApi> {
@@ -55,5 +60,6 @@ export async function obterResultados(campanhaId: string, signal?: AbortSignal):
     dimensoes: data.dimensoes,
     distribuicao: data.distribuicao,
     questoesCriticas: data.questoes_criticas,
+    dadosInsuficientes: data.dados_insuficientes,
   }
 }

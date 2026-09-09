@@ -10,6 +10,7 @@ from modules.analytics.domain.services import (
     dimension_averages,
     likert_distribution,
     satisfaction_pct,
+    suprimir_por_k_anonimato,
 )
 from modules.campaigns.application.ports import CampaignRepository
 from modules.campaigns.domain.services import assert_results_visible, status_por_periodo
@@ -39,10 +40,20 @@ class GetDashboard:
 
     def execute(self) -> dict:
         campaigns = self._campaigns.list_all()
-        likert_values = self._submissions.list_likert_values()
+        total_respostas = self._submissions.count_all()
+        # k-anonimato: com poucas respostas no total, qualquer média/distribuição
+        # de satisfação arrisca reidentificar quem respondeu — suprime só o que
+        # revela sentimento, mantém a contagem bruta (métrica operacional).
+        dados_insuficientes = suprimir_por_k_anonimato(total_respostas)
+        likert_values = [] if dados_insuficientes else self._submissions.list_likert_values()
+
         participacao_por_perfil = []
         for perfil in PARTICIPANTES:
             eligible = self._users.count_by_perfis([perfil])
+            if suprimir_por_k_anonimato(eligible):
+                # população elegível pequena demais: até a % de participação
+                # identificaria o grupo indiretamente.
+                continue
             perfil_campaigns = [item for item in campaigns if perfil in item.publico]
             answered = sum(item.respostas for item in perfil_campaigns)
             capacity = eligible * len(perfil_campaigns)
@@ -63,7 +74,8 @@ class GetDashboard:
             "satisfacao": likert_distribution(likert_values),
             "media_geral": average(likert_values),
             "satisfacao_geral": satisfaction_pct(likert_values),
-            "total_respostas": self._submissions.count_all(),
+            "total_respostas": total_respostas,
+            "dados_insuficientes": dados_insuficientes,
         }
 
 
@@ -87,27 +99,32 @@ class GetCampaignResults:
         if questionnaire is None:
             raise NotFoundError("Questionário não encontrado")
         submissions = self._submissions.list_by_campaign(campaign.id)
-        values = collect_likert_values(submissions)
-        dimensions = dimension_averages(submissions, questionnaire.perguntas)
+        # k-anonimato: campanha com menos respondentes que o mínimo não expõe
+        # nenhum resultado qualitativo (média, distribuição, dimensão, questão
+        # crítica) — só a contagem de respostas, que já é métrica operacional.
+        dados_insuficientes = suprimir_por_k_anonimato(len(submissions))
+        values = [] if dados_insuficientes else collect_likert_values(submissions)
+        dimensions = [] if dados_insuficientes else dimension_averages(submissions, questionnaire.perguntas)
 
-        previous = None
-        for item in self._campaigns.list_all():
-            if (
-                item.id != campaign.id
-                and item.tipo == campaign.tipo
-                and status_por_periodo(item.inicio, item.fim) is StatusCampanha.ENCERRADA
-                and item.fim < campaign.inicio
-            ):
-                previous = item
-                break
-        if previous:
-            previous_q = self._questionnaires.get(previous.questionnaire_id)
-            if previous_q:
-                previous_dims = dimension_averages(
-                    self._submissions.list_by_campaign(previous.id),
-                    previous_q.perguntas,
-                )
-                dimensions = apply_previous_cycle(dimensions, previous_dims)
+        if not dados_insuficientes:
+            previous = None
+            for item in self._campaigns.list_all():
+                if (
+                    item.id != campaign.id
+                    and item.tipo == campaign.tipo
+                    and status_por_periodo(item.inicio, item.fim) is StatusCampanha.ENCERRADA
+                    and item.fim < campaign.inicio
+                ):
+                    previous = item
+                    break
+            if previous:
+                previous_q = self._questionnaires.get(previous.questionnaire_id)
+                if previous_q:
+                    previous_dims = dimension_averages(
+                        self._submissions.list_by_campaign(previous.id),
+                        previous_q.perguntas,
+                    )
+                    dimensions = apply_previous_cycle(dimensions, previous_dims)
 
         return {
             "campanha": campaign,
@@ -116,8 +133,9 @@ class GetCampaignResults:
             "media_geral": average(values),
             "satisfacao": satisfaction_pct(values),
             "dimensoes": dimensions,
-            "distribuicao": likert_distribution(values),
-            "questoes_criticas": critical_questions(submissions, questionnaire.perguntas),
+            "distribuicao": [] if dados_insuficientes else likert_distribution(values),
+            "questoes_criticas": [] if dados_insuficientes else critical_questions(submissions, questionnaire.perguntas),
+            "dados_insuficientes": dados_insuficientes,
         }
 
 

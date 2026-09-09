@@ -54,19 +54,25 @@ export default function Resultados({ campanhas }: { campanhas: CampanhaApi[] }) 
 
       {!loading && !erro && resultados && (
         <>
+          {resultados.dadosInsuficientes && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 mb-5 flex gap-3 text-sm text-amber-900">
+              <span className="mt-0.5">{Icons.shield({ width: 18, height: 18 })}</span>
+              <p>Esta campanha tem <strong>poucos respondentes</strong> pra exibir médias e distribuições sem risco de identificar alguém indiretamente. Os indicadores abaixo ficam ocultos até haver respostas suficientes.</p>
+            </div>
+          )}
           <div className="responsive-grid-4 grid grid-cols-4 gap-4 mb-5">
             {[
               { label:'Respostas', value:resultados.totalRespostas.toLocaleString('pt-BR'), color:'#334155', bg:'#F1F5F9' },
               { label:'Participação', value:`${resultados.participacao}%`, color:'#166534', bg:'#DCFCE7' },
-              { label:'Média geral', value:resultados.mediaGeral.toFixed(1), color:'#1D4ED8', bg:'#DBEAFE' },
-              { label:'Satisfação', value:`${resultados.satisfacao.toFixed(1).replace('.',',')}%`, color:'#6D28D9', bg:'#EDE9FE' },
+              { label:'Média geral', value:resultados.dadosInsuficientes ? '—' : resultados.mediaGeral.toFixed(1), color:'#1D4ED8', bg:'#DBEAFE' },
+              { label:'Satisfação', value:resultados.dadosInsuficientes ? '—' : `${resultados.satisfacao.toFixed(1).replace('.',',')}%`, color:'#6D28D9', bg:'#EDE9FE' },
             ].map(k => <Card key={k.label} className="p-5"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">{k.label}</p><div className="flex items-end justify-between mt-2"><p className="text-3xl font-bold" style={{ color:k.color }}>{k.value}</p><span className="w-9 h-9 rounded-xl" style={{ background:k.bg }}/></div></Card>)}
           </div>
 
           <div className="mb-5">
             <Card><CardHead title="Resultados por Dimensão" sub="Média de 1 a 5 e comparação com o ciclo anterior"/>
               <div className="p-5 grid gap-4">
-                {resultados.dimensoes.length === 0 && <p className="text-sm text-slate-400 text-center py-4">Sem dimensões suficientes pra consolidar ainda.</p>}
+                {resultados.dimensoes.length === 0 && <p className="text-sm text-slate-400 text-center py-4">{resultados.dadosInsuficientes ? 'Poucos respondentes pra exibir com segurança.' : 'Sem dimensões suficientes pra consolidar ainda.'}</p>}
                 {resultados.dimensoes.map(d => { const delta=d.media-d.anterior; const color=d.media>=4.2?'#2A7A3B':d.media>=3.8?'#2563EB':'#D97706'; return <div key={d.nome}><div className="flex items-center justify-between gap-3 mb-1.5"><span className="text-sm font-medium text-slate-600">{d.nome}</span><div className="flex items-center gap-3"><span className="text-[11px] font-semibold" style={{ color:delta>=0?'#15803D':'#B45309' }}>{delta>=0?'↑':'↓'} {Math.abs(delta).toFixed(1)}</span><strong className="text-sm" style={{ color }}>{d.media.toFixed(1)}</strong></div></div><div className="h-2.5 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full" style={{ width:`${d.media/5*100}%`, background:color }}/></div></div>})}
               </div>
             </Card>
@@ -75,13 +81,13 @@ export default function Resultados({ campanhas }: { campanhas: CampanhaApi[] }) 
           <div className="responsive-grid-2 grid grid-cols-2 gap-4">
             <Card><CardHead title="Distribuição das Respostas" sub="Escala de satisfação"/>
               <div className="p-5 grid gap-3">
-                {resultados.distribuicao.length === 0 && <p className="text-sm text-slate-400 text-center py-4">Sem respostas suficientes ainda.</p>}
+                {resultados.distribuicao.length === 0 && <p className="text-sm text-slate-400 text-center py-4">{resultados.dadosInsuficientes ? 'Poucos respondentes pra exibir com segurança.' : 'Sem respostas suficientes ainda.'}</p>}
                 {resultados.distribuicao.map(d => <div key={d.label} className="grid grid-cols-[135px_1fr_54px] items-center gap-3"><span className="text-xs text-slate-500">{d.label}</span><div className="h-7 rounded-lg bg-slate-100 overflow-hidden relative"><div className="h-full rounded-lg" style={{ width:`${d.pct}%`, background:d.cor, opacity:.8 }}/><span className="absolute inset-y-0 left-2 flex items-center text-[11px] font-bold text-slate-800">{d.pct}%</span></div><span className="text-xs text-right text-slate-400">{d.n}</span></div>)}
               </div>
             </Card>
             <Card><CardHead title="Pontos de Atenção" sub="Itens com menores médias consolidadas"/>
               <div className="p-5 grid gap-3">
-                {resultados.questoesCriticas.length === 0 && <p className="text-sm text-slate-400 text-center py-4">Nenhum ponto crítico identificado.</p>}
+                {resultados.questoesCriticas.length === 0 && <p className="text-sm text-slate-400 text-center py-4">{resultados.dadosInsuficientes ? 'Poucos respondentes pra exibir com segurança.' : 'Nenhum ponto crítico identificado.'}</p>}
                 {resultados.questoesCriticas.map((q,i)=><div key={q.questao} className="rounded-xl border border-slate-200 p-4 flex items-center gap-4"><span className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">{i+1}</span><div className="flex-1"><p className="text-sm font-semibold text-slate-700">{q.questao}</p><p className="text-xs text-slate-400 mt-0.5">{q.respostas} respostas</p></div><strong className="text-lg text-amber-700">{q.media.toFixed(1)}</strong></div>)}
               </div>
             </Card>
