@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -16,3 +17,8 @@ class UserRepository(Protocol):
 class PasswordHasher(Protocol):
     def hash(self, senha: str) -> str: ...
     def verify(self, senha: str, senha_hash: str) -> bool: ...
+
+
+class RevokedTokenRepository(Protocol):
+    def revoke(self, jti: str, expires_at: datetime) -> None: ...
+    def is_revoked(self, jti: str) -> bool: ...

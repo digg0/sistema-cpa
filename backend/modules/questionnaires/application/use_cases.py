@@ -5,6 +5,7 @@ from modules.identity.domain.entities import User
 from modules.questionnaires.application.ports import QuestionnaireRepository
 from modules.questionnaires.domain.entities import Question, Questionnaire
 from modules.questionnaires.domain.services import (
+    assert_can_mutate,
     assert_objective_question,
     assert_valid_perfis_alvo,
     default_likert_questions,
@@ -132,6 +133,51 @@ class DuplicateQuestionnaire:
             ],
         )
         return self._questionnaires.add(copy)
+
+
+class UpdateQuestionnaire:
+    """Edita nome, categoria, status e perguntas de um questionário existente.
+
+    Só é permitido enquanto o questionário não tem respostas registradas
+    (`assert_can_mutate` — mesma trava usada em outros lugares do domínio).
+    Um questionário publicado e já respondido não pode ser editado
+    destrutivamente, porque isso mudaria o instrumento de medida por trás de
+    campanhas já encerradas, quebrando a comparabilidade histórica entre
+    ciclos; o caminho correto nesse caso é duplicar (`DuplicateQuestionnaire`)
+    e publicar a cópia como uma nova versão.
+    """
+
+    def __init__(self, questionnaires: QuestionnaireRepository):
+        self._questionnaires = questionnaires
+
+    def execute(
+        self,
+        questionnaire_id: UUID,
+        nome: str,
+        categoria: str,
+        status: StatusQuestionario,
+        perguntas: list[QuestionDraft],
+    ) -> Questionnaire:
+        original = self._questionnaires.get(questionnaire_id)
+        if original is None:
+            raise NotFoundError("Questionário não encontrado")
+        assert_can_mutate(original)
+
+        if not nome.strip():
+            raise ValidationError("O nome do questionário é obrigatório")
+
+        updated = Questionnaire(
+            id=original.id,
+            nome=nome.strip(),
+            categoria=categoria,
+            versao=original.versao,
+            status=status,
+            criador_id=original.criador_id,
+            criador_nome=original.criador_nome,
+            atualizado_em=datetime.now(timezone.utc),
+            perguntas=_build_questions(perguntas, None),
+        )
+        return self._questionnaires.update(updated)
 
 
 class GetQuestionnaire:

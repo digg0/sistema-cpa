@@ -30,6 +30,9 @@ export interface DashboardApi {
   mediaGeral: number
   satisfacaoGeral: number
   totalRespostas: number
+  /** k-anonimato: true quando o total de respostas é pequeno demais e os
+   * campos de satisfação acima vêm zerados de propósito. */
+  dadosInsuficientes: boolean
 }
 
 interface CampaignOut {
@@ -57,6 +60,7 @@ interface DashboardOut {
   media_geral: number
   satisfacao_geral: number
   total_respostas: number
+  dados_insuficientes: boolean
 }
 
 const PERFIL_ESTILO: Record<string, { cor: string; fundo: string; label: string }> = {
@@ -82,5 +86,6 @@ export async function obterDashboard(signal?: AbortSignal): Promise<DashboardApi
     mediaGeral: data.media_geral,
     satisfacaoGeral: data.satisfacao_geral,
     totalRespostas: data.total_respostas,
+    dadosInsuficientes: data.dados_insuficientes,
   }
 }

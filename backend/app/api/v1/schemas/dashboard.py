@@ -41,6 +41,9 @@ class DashboardOut(BaseModel):
     media_geral: float
     satisfacao_geral: float
     total_respostas: int
+    # k-anonimato: True quando o total de respostas é pequeno demais e os
+    # campos de satisfação acima vêm zerados/vazios de propósito.
+    dados_insuficientes: bool = False
 
 
 class ResultsOut(BaseModel):
@@ -52,3 +55,6 @@ class ResultsOut(BaseModel):
     dimensoes: list[DimensaoOut]
     distribuicao: list[SatisfacaoItem]
     questoes_criticas: list[QuestaoCriticaOut]
+    # k-anonimato: True quando a campanha tem poucos respondentes demais e os
+    # campos qualitativos acima vêm zerados/vazios de propósito.
+    dados_insuficientes: bool = False

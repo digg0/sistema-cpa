@@ -1,9 +1,10 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from infrastructure.db.models import UserModel
+from infrastructure.db.models import RevokedTokenModel, UserModel
 from modules.identity.domain.entities import User
 from modules.identity.domain.services import normalize_identificador
 from shared.enums import Perfil
@@ -57,3 +58,23 @@ class SqlAlchemyUserRepository:
     def list_by_perfis(self, perfis: list[Perfil]) -> list[User]:
         stmt = select(UserModel).where(UserModel.perfil.in_([perfil.value for perfil in perfis]))
         return [_to_entity(row) for row in self._session.scalars(stmt)]
+
+
+class SqlAlchemyRevokedTokenRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def revoke(self, jti: str, expires_at: datetime) -> None:
+        if self._session.get(RevokedTokenModel, jti) is not None:
+            return
+        self._session.add(
+            RevokedTokenModel(
+                jti=jti,
+                revoked_at=datetime.now(timezone.utc),
+                expires_at=expires_at,
+            )
+        )
+        self._session.flush()
+
+    def is_revoked(self, jti: str) -> bool:
+        return self._session.get(RevokedTokenModel, jti) is not None

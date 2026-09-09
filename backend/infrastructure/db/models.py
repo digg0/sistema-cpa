@@ -131,6 +131,24 @@ class SemesterMetricModel(Base):
     satisfacao: Mapped[float] = mapped_column(nullable=False)
 
 
+class RevokedTokenModel(Base):
+    """Denylist de tokens invalidados por logout manual (RF-04).
+
+    O JWT em si é stateless — continuaria "válido" pela assinatura até o `exp`
+    natural. Guardar o `jti` aqui é o que faz o logout ter efeito de verdade:
+    `get_current_user` rejeita qualquer token cujo `jti` apareça nesta tabela,
+    mesmo que a assinatura e o `exp` ainda estejam ok. `expires_at` é só o
+    `exp` original do token, guardado pra permitir expurgo futuro das linhas
+    de tokens que já venceriam de qualquer forma.
+    """
+
+    __tablename__ = "revoked_tokens"
+
+    jti: Mapped[str] = mapped_column(String(36), primary_key=True)
+    revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
 class AuditLogModel(Base):
     __tablename__ = "audit_logs"
     __table_args__ = (

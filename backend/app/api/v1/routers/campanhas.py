@@ -85,4 +85,5 @@ def get_resultados(
         dimensoes=data["dimensoes"],
         distribuicao=data["distribuicao"],
         questoes_criticas=data["questoes_criticas"],
+        dados_insuficientes=data["dados_insuficientes"],
     )

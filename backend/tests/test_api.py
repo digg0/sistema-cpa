@@ -25,6 +25,30 @@ def test_login_dos_perfis(app_client):
         assert body["access_token"]
 
 
+def test_logout_revoga_o_token_em_uso(app_client):
+    token = login(app_client, "Discente", "20261001", "123456")
+
+    antes = app_client.get("/api/v1/auth/me", headers=auth_header(token))
+    assert antes.status_code == 200
+
+    logout = app_client.post("/api/v1/auth/logout", headers=auth_header(token))
+    assert logout.status_code == 204
+
+    depois = app_client.get("/api/v1/auth/me", headers=auth_header(token))
+    assert depois.status_code == 401
+
+    admin = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
+    logs = app_client.get(
+        "/api/v1/auditoria", headers=auth_header(admin), params={"acao": "logout"}
+    ).json()
+    assert any(item["resultado"] == "sucesso" for item in logs)
+
+
+def test_logout_sem_token_e_rejeitado(app_client):
+    response = app_client.post("/api/v1/auth/logout")
+    assert response.status_code == 401
+
+
 def test_login_rejeita_senha_errada(app_client):
     response = app_client.post(
         "/api/v1/auth/login",
@@ -68,6 +92,95 @@ def test_coordenador_cria_e_duplica_questionario(app_client):
     assert duplicated.status_code == 201
     assert duplicated.json()["status"] == "Rascunho"
     assert "cópia" in duplicated.json()["nome"]
+
+
+def test_coordenador_edita_questionario_em_rascunho(app_client):
+    token = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
+    questionarios = app_client.get("/api/v1/questionarios", headers=auth_header(token)).json()
+    rascunho = next(item for item in questionarios if item["status"] == "Rascunho")
+
+    updated = app_client.put(
+        f"/api/v1/questionarios/{rascunho['id']}",
+        headers=auth_header(token),
+        json={
+            "nome": "Pesquisa de Biblioteca — revisada",
+            "categoria": "Biblioteca",
+            "status": "Publicado",
+            "perguntas": [
+                {"texto": "O acervo atende à demanda do curso?", "tipo": "likert"},
+                {"texto": "Recomendaria o serviço a um colega?", "tipo": "simnao"},
+            ],
+        },
+    )
+    assert updated.status_code == 200, updated.text
+    body = updated.json()
+    assert body["nome"] == "Pesquisa de Biblioteca — revisada"
+    assert body["categoria"] == "Biblioteca"
+    assert body["status"] == "Publicado"
+    assert body["perguntas"] == 2
+    assert [item["texto"] for item in body["itens"]] == [
+        "O acervo atende à demanda do curso?",
+        "Recomendaria o serviço a um colega?",
+    ]
+
+
+def test_editar_questionario_com_respostas_registradas_e_bloqueado(app_client):
+    admin = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
+    discente = login(app_client, "Discente", "20261001", "123456")
+    avaliacoes = app_client.get("/api/v1/avaliacoes", headers=auth_header(discente)).json()
+    ativa = next(item for item in avaliacoes if item["status"] == "Ativa")
+    enviado = app_client.post(
+        f"/api/v1/avaliacoes/{ativa['id']}/respostas",
+        headers=auth_header(discente),
+        json={
+            "respostas": [
+                {"pergunta_id": ativa["perguntas"][0]["id"], "valor": "5"},
+                {"pergunta_id": ativa["perguntas"][1]["id"], "valor": "sim"},
+            ]
+        },
+    )
+    assert enviado.status_code == 201, enviado.text
+
+    campanhas = app_client.get("/api/v1/campanhas", headers=auth_header(admin)).json()
+    questionario_id = next(item for item in campanhas if item["id"] == ativa["id"])["questionario_id"]
+    questionarios = app_client.get("/api/v1/questionarios", headers=auth_header(admin)).json()
+    publicado = next(item for item in questionarios if item["id"] == questionario_id)
+    assert publicado["locked"] is True
+
+    bloqueado = app_client.put(
+        f"/api/v1/questionarios/{publicado['id']}",
+        headers=auth_header(admin),
+        json={
+            "nome": "Tentativa de edição",
+            "categoria": publicado["categoria"],
+            "status": publicado["status"],
+            "perguntas": [{"texto": "Pergunta nova", "tipo": "likert"}],
+        },
+    )
+    assert bloqueado.status_code == 409
+
+
+def test_editar_questionario_inexistente_retorna_404(app_client):
+    token = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
+    response = app_client.put(
+        "/api/v1/questionarios/00000000-0000-0000-0000-000000000000",
+        headers=auth_header(token),
+        json={"nome": "X", "categoria": "Docente", "status": "Rascunho", "perguntas": [{"texto": "Q", "tipo": "likert"}]},
+    )
+    assert response.status_code == 404
+
+
+def test_rbac_discente_nao_edita_questionario(app_client):
+    admin = login(app_client, "Coordenador CPA", "coordenacao.cpa@ifce.edu.br", "admin123")
+    questionarios = app_client.get("/api/v1/questionarios", headers=auth_header(admin)).json()
+    rascunho = next(item for item in questionarios if item["status"] == "Rascunho")
+    token = login(app_client, "Discente", "20261001", "123456")
+    response = app_client.put(
+        f"/api/v1/questionarios/{rascunho['id']}",
+        headers=auth_header(token),
+        json={"nome": "X", "categoria": "Docente", "status": "Rascunho", "perguntas": [{"texto": "Q", "tipo": "likert"}]},
+    )
+    assert response.status_code == 403
 
 
 def test_campanha_sem_tipo_e_publico_usa_padrao_geral(app_client):
@@ -219,8 +332,12 @@ def test_dashboard_e_relatorio(app_client):
     assert enviado.status_code == 201, enviado.text
     consolidado = app_client.get("/api/v1/dashboard", headers=auth_header(admin))
     assert consolidado.status_code == 200
-    assert consolidado.json()["total_respostas"] >= 1
-    assert sum(item["n"] for item in consolidado.json()["satisfacao"]) >= 1
+    corpo = consolidado.json()
+    assert corpo["total_respostas"] >= 1
+    # k-anonimato: com só 1 resposta no total, a distribuição de satisfação
+    # fica suprimida (só a contagem bruta, que é operacional, permanece).
+    assert corpo["dados_insuficientes"] is True
+    assert sum(item["n"] for item in corpo["satisfacao"]) == 0
     created = app_client.post(
         "/api/v1/relatorios",
         headers=auth_header(admin),

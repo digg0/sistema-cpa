@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import AuthGuard from './auth/AuthGuard'
-import { ApiError, getCurrentUser } from './auth/api'
+import { ApiError, getCurrentUser, logoutWithApi } from './auth/api'
 import { clearSession, isSessionValid, loadSession, saveSession, type AuthSession } from './auth/session'
 import { ApiException } from './api/client'
 import { criarCampanha as criarCampanhaApi, listarCampanhas, type CampanhaApi, type CriarCampanhaInput } from './api/campanhas'
 import { enviarRespostas, listAvaliacoes, type Avaliacao } from './api/avaliacoes'
-import { duplicarQuestionario as duplicarQuestionarioApi, listarQuestionarios, type QuestionarioApi } from './api/questionarios'
+import {
+  duplicarQuestionario as duplicarQuestionarioApi,
+  editarQuestionario as editarQuestionarioApi,
+  listarQuestionarios,
+  type EditarQuestionarioInput,
+  type QuestionarioApi,
+} from './api/questionarios'
 import IfceLogo from './components/IfceLogo'
 import { Icons } from './components/Icons'
 import { GREEN, GREEN_L } from './components/ui'
@@ -78,11 +84,14 @@ export default function App() {
   const [avaliacoesError,setAvaliacoesError]=useState<string|null>(null)
 
   const logout=useCallback(()=>{
+    // Best-effort: revoga o token no servidor (RF-04), mas a sessão local
+    // é encerrada de qualquer forma, mesmo se essa chamada falhar.
+    if(session) logoutWithApi(session.accessToken)
     clearSession()
     setSession(null)
     setActive('dashboard')
     setMobileMenu(false)
-  },[])
+  },[session])
 
   useEffect(()=>{
     const current=session
@@ -230,6 +239,14 @@ export default function App() {
     }
     await carregarQuestionarios()
   }
+  async function editarQuestionario(id:string, input:EditarQuestionarioInput){
+    try{
+      await editarQuestionarioApi(id, input)
+    }catch(error){
+      throw new Error(error instanceof ApiException ? error.message : 'Não foi possível salvar as alterações. Tente novamente.')
+    }
+    await carregarQuestionarios()
+  }
   if(checkingSession) return <SessionCheck/>
   if(!session) return <Login onLogin={login}/>
 
@@ -240,7 +257,7 @@ export default function App() {
   let screen:ReactNode
   if(admin){
     if(active==='campanhas') screen=<Campanhas campanhas={campanhas} onCreate={criarCampanha} loading={campanhasLoading} error={campanhasError} abrirNova={abrirNovaCampanha} onNovaAberta={()=>setAbrirNovaCampanha(false)}/>
-    else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onDuplicate={duplicarQuestionario} loading={questionariosLoading} error={questionariosError}/>
+    else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onDuplicate={duplicarQuestionario} onEdit={editarQuestionario} loading={questionariosLoading} error={questionariosError}/>
     else if(active==='resultados') screen=<Resultados campanhas={campanhas}/>
     else if(active==='relatorios') screen=<Relatorios/>
     else screen=<Dashboard onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>

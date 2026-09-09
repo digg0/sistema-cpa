@@ -8,6 +8,7 @@ from app.api.v1.deps import (
     get_get_questionnaire,
     get_list_questionnaires,
     get_record_audit_log,
+    get_update_questionnaire,
     require_coordenador,
 )
 from app.api.v1.presenters import questionnaire_detail, questionnaire_summary
@@ -15,6 +16,7 @@ from app.api.v1.schemas.questionarios import (
     CreateQuestionnaireIn,
     QuestionnaireDetailOut,
     QuestionnaireSummaryOut,
+    UpdateQuestionnaireIn,
 )
 from modules.audit.application.use_cases import RecordAuditLog
 from modules.identity.domain.entities import User
@@ -24,6 +26,7 @@ from modules.questionnaires.application.use_cases import (
     GetQuestionnaire,
     ListQuestionnaires,
     QuestionDraft,
+    UpdateQuestionnaire,
 )
 
 router = APIRouter(prefix="/questionarios", tags=["questionarios"])
@@ -79,6 +82,37 @@ def get_questionario(
     use_case: GetQuestionnaire = Depends(get_get_questionnaire),
 ) -> QuestionnaireDetailOut:
     return questionnaire_detail(use_case.execute(questionnaire_id))
+
+
+@router.put("/{questionnaire_id}", response_model=QuestionnaireDetailOut)
+def update_questionario(
+    questionnaire_id: UUID,
+    payload: UpdateQuestionnaireIn,
+    user: User = Depends(require_coordenador),
+    use_case: UpdateQuestionnaire = Depends(get_update_questionnaire),
+    audit: RecordAuditLog = Depends(get_record_audit_log),
+) -> QuestionnaireDetailOut:
+    drafts = [
+        QuestionDraft(item.texto, item.tipo, item.obrigatoria, item.opcoes, item.dimensao, item.perfis_alvo)
+        for item in payload.perguntas
+    ]
+    updated = use_case.execute(
+        questionnaire_id=questionnaire_id,
+        nome=payload.nome,
+        categoria=payload.categoria,
+        status=payload.status,
+        perguntas=drafts,
+    )
+    audit.execute(
+        ator_id=user.id,
+        ator_perfil=user.perfil.value,
+        acao="editar",
+        recurso="questionario",
+        recurso_id=str(updated.id),
+        resultado="sucesso",
+        detalhes={"nome": updated.nome, "categoria": updated.categoria, "status": updated.status.value},
+    )
+    return questionnaire_detail(updated)
 
 
 @router.post("/{questionnaire_id}/duplicar", response_model=QuestionnaireDetailOut, status_code=status.HTTP_201_CREATED)

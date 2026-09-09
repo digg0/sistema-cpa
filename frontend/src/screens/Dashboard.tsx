@@ -134,7 +134,11 @@ export default function Dashboard({ onNovaCampanha }: { onNovaCampanha: () => vo
 
       <div className="responsive-grid-3 grid grid-cols-[1fr_1.05fr_1.25fr] gap-4 mb-5">
         <Card><CardHead title="Participação por Perfil" sub={atual ? `Ciclo ${atual.sem}` : 'Ciclo atual'}/><div className="p-5 grid gap-5">{data.participacaoPorPerfil.map(perfil => <div key={perfil.perfil}><div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: perfil.cor }}/><span className="text-sm font-medium text-slate-600">{perfil.label}</span></div><strong className="text-sm" style={{ color: perfil.cor }}>{perfil.valor}%</strong></div><div className="h-2.5 rounded-full overflow-hidden" style={{ background: perfil.fundo }}><div className="h-full rounded-full" style={{ width: `${perfil.valor}%`, background: perfil.cor }}/></div></div>)}</div></Card>
-        <Card><CardHead title="Satisfação Geral" sub="Índice consolidado"/><div className="p-5"><Donut items={data.satisfacao} centro={formatPct(data.satisfacaoGeral)}/></div></Card>
+        <Card><CardHead title="Satisfação Geral" sub="Índice consolidado"/><div className="p-5">
+          {data.dadosInsuficientes
+            ? <p className="text-sm text-slate-400 text-center py-8">Poucas respostas no total pra exibir com segurança (evita identificar quem respondeu).</p>
+            : <Donut items={data.satisfacao} centro={formatPct(data.satisfacaoGeral)}/>}
+        </div></Card>
         <Card><CardHead title="Histórico de Participação" sub="Evolução semestral"/><div className="p-4"><HistoryLine historico={data.historico}/><div className="flex justify-end gap-4 px-2 text-[11px] text-slate-400"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: BLUE }}/>histórico</span><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: GREEN }}/>ciclo atual</span></div></div></Card>
       </div>
 
