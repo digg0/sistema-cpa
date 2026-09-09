@@ -6,9 +6,11 @@ import { ApiException } from './api/client'
 import { criarCampanha as criarCampanhaApi, listarCampanhas, type CampanhaApi, type CriarCampanhaInput } from './api/campanhas'
 import { enviarRespostas, listAvaliacoes, type Avaliacao } from './api/avaliacoes'
 import {
+  criarQuestionario as criarQuestionarioApi,
   duplicarQuestionario as duplicarQuestionarioApi,
   editarQuestionario as editarQuestionarioApi,
   listarQuestionarios,
+  type CriarQuestionarioInput,
   type EditarQuestionarioInput,
   type QuestionarioApi,
 } from './api/questionarios'
@@ -231,6 +233,20 @@ export default function App() {
       )
     }
   }
+  async function criarQuestionario(input:CriarQuestionarioInput){
+    try{
+      await criarQuestionarioApi(input)
+    }catch(error){
+      throw new Error(
+        error instanceof ApiException
+          ? error.message
+          : 'Não foi possível criar o questionário. Tente novamente.'
+      )
+    }
+
+    await carregarQuestionarios()
+  }
+
   async function duplicarQuestionario(id:string){
     try{
       await duplicarQuestionarioApi(id)
@@ -257,7 +273,7 @@ export default function App() {
   let screen:ReactNode
   if(admin){
     if(active==='campanhas') screen=<Campanhas campanhas={campanhas} onCreate={criarCampanha} loading={campanhasLoading} error={campanhasError} abrirNova={abrirNovaCampanha} onNovaAberta={()=>setAbrirNovaCampanha(false)}/>
-    else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onDuplicate={duplicarQuestionario} onEdit={editarQuestionario} loading={questionariosLoading} error={questionariosError}/>
+    else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onCreate={criarQuestionario} onDuplicate={duplicarQuestionario} onEdit={editarQuestionario} loading={questionariosLoading} error={questionariosError}/>
     else if(active==='resultados') screen=<Resultados campanhas={campanhas}/>
     else if(active==='relatorios') screen=<Relatorios/>
     else screen=<Dashboard onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>

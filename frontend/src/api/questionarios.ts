@@ -44,6 +44,11 @@ export interface EditarQuestionarioInput {
   perguntas: PerguntaInput[]
 }
 
+export interface CriarQuestionarioInput {
+  nome: string
+  perguntas: string[]
+}
+
 interface QuestionOut {
   id: string
   texto: string
@@ -97,6 +102,34 @@ function mapPergunta(data: QuestionOut): PerguntaDetalheApi {
     dimensao: data.dimensao,
     ordem: data.ordem,
     perfisAlvo: data.perfis_alvo,
+  }
+}
+
+export async function criarQuestionario(
+  input: CriarQuestionarioInput,
+  signal?: AbortSignal,
+): Promise<QuestionarioDetalheApi> {
+  const data = await apiClient.post<QuestionnaireDetailOut>(
+    '/api/v1/questionarios',
+    {
+      nome: input.nome.trim(),
+      categoria: 'Institucional',
+      status: 'Rascunho',
+      perguntas: input.perguntas.map(texto => ({
+        texto: texto.trim(),
+        tipo: 'likert',
+        obrigatoria: true,
+        opcoes: null,
+        dimensao: null,
+        perfis_alvo: ['discente', 'docente', 'tecnico'],
+      })),
+    },
+    { signal },
+  )
+
+  return {
+    ...mapQuestionario(data),
+    itens: data.itens.map(mapPergunta),
   }
 }
 

@@ -37,11 +37,14 @@ class QuestionDraft:
 
 
 def _build_questions(drafts: list[QuestionDraft] | None, quantidade: int | None) -> list[Question]:
+    if drafts and len(drafts) > 50:
+        raise ValidationError("O questionário pode ter no máximo 50 perguntas")
+
     if drafts:
         questions = [
             Question(
                 id=new_id(),
-                texto=draft.texto,
+                texto=draft.texto.strip(),
                 tipo=draft.tipo,
                 obrigatoria=draft.obrigatoria,
                 opcoes=draft.opcoes,
@@ -69,6 +72,16 @@ def _build_questions(drafts: list[QuestionDraft] | None, quantidade: int | None)
     for question in questions:
         assert_objective_question(question)
         assert_valid_perfis_alvo(question)
+
+    textos_normalizados = [
+        " ".join(question.texto.split()).casefold()
+        for question in questions
+    ]
+    if len(set(textos_normalizados)) != len(textos_normalizados):
+        raise ValidationError(
+            "Não são permitidas perguntas duplicadas no mesmo questionário"
+        )
+
     return questions
 
 
@@ -85,11 +98,17 @@ class CreateQuestionnaire:
         perguntas: list[QuestionDraft] | None = None,
         quantidade_perguntas: int | None = None,
     ) -> Questionnaire:
-        if not nome.strip():
+        nome_limpo = nome.strip()
+        if not nome_limpo:
             raise ValidationError("O nome do questionário é obrigatório")
+        if len(nome_limpo) > 150:
+            raise ValidationError(
+                "O nome do questionário pode ter no máximo 150 caracteres"
+            )
+
         questionnaire = Questionnaire(
             id=new_id(),
-            nome=nome.strip(),
+            nome=nome_limpo,
             categoria=categoria,
             versao=1,
             status=status,

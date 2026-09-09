@@ -5,6 +5,7 @@ import { ApiException } from '../api/client'
 import type { TipoPergunta } from '../data/mock'
 import {
   obterQuestionario,
+  type CriarQuestionarioInput,
   type EditarQuestionarioInput,
   type QuestionarioApi,
   type QuestionarioDetalheApi,
@@ -95,6 +96,309 @@ type PerguntaForm = {
 
 function perguntaVazia(): PerguntaForm {
   return { texto: '', tipo: 'likert', opcoes: '', dimensao: '', perfisAlvo: [...PERFIS_DISPONIVEIS] }
+}
+
+function NovoQuestionarioModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void
+  onCreate: (input: CriarQuestionarioInput) => Promise<void>
+}) {
+  const MAX_PERGUNTAS = 50
+  const MAX_TEXTO = 500
+  const MAX_NOME = 150
+
+  const [nome, setNome] = useState('')
+  const [perguntas, setPerguntas] = useState<string[]>([''])
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  function atualizarPergunta(index: number, texto: string) {
+    setPerguntas(atual =>
+      atual.map((pergunta, i) =>
+        i === index ? texto : pergunta,
+      ),
+    )
+  }
+
+  function adicionarPergunta() {
+    if (perguntas.length >= MAX_PERGUNTAS) {
+      setErro(`O questionário pode ter no máximo ${MAX_PERGUNTAS} perguntas.`)
+      return
+    }
+
+    setErro('')
+    setPerguntas(atual => [...atual, ''])
+  }
+
+  function removerPergunta(index: number) {
+    if (perguntas.length === 1) return
+
+    setPerguntas(atual =>
+      atual.filter((_, i) => i !== index),
+    )
+  }
+
+  function normalizar(texto: string) {
+    return texto
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLocaleLowerCase('pt-BR')
+  }
+
+  async function salvar(event: React.FormEvent) {
+    event.preventDefault()
+    setErro('')
+
+    const nomeLimpo = nome.trim()
+    const perguntasLimpas = perguntas.map(pergunta =>
+      pergunta.trim(),
+    )
+
+    if (nomeLimpo.length < 3) {
+      setErro('Informe um nome com pelo menos 3 caracteres.')
+      return
+    }
+
+    if (nomeLimpo.length > MAX_NOME) {
+      setErro(`O nome pode ter no máximo ${MAX_NOME} caracteres.`)
+      return
+    }
+
+    if (
+      perguntasLimpas.length < 1 ||
+      perguntasLimpas.length > MAX_PERGUNTAS
+    ) {
+      setErro(
+        `O questionário precisa ter entre 1 e ${MAX_PERGUNTAS} perguntas.`,
+      )
+      return
+    }
+
+    if (
+      perguntasLimpas.some(
+        pergunta => pergunta.length < 3,
+      )
+    ) {
+      setErro(
+        'Toda pergunta precisa ter pelo menos 3 caracteres.',
+      )
+      return
+    }
+
+    if (
+      perguntasLimpas.some(
+        pergunta => pergunta.length > MAX_TEXTO,
+      )
+    ) {
+      setErro(
+        `Cada pergunta pode ter no máximo ${MAX_TEXTO} caracteres.`,
+      )
+      return
+    }
+
+    const normalizadas = perguntasLimpas.map(normalizar)
+
+    if (new Set(normalizadas).size !== normalizadas.length) {
+      setErro(
+        'Existem perguntas repetidas. Revise o questionário antes de criar.',
+      )
+      return
+    }
+
+    setSalvando(true)
+
+    try {
+      await onCreate({
+        nome: nomeLimpo,
+        perguntas: perguntasLimpas,
+      })
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível criar o questionário.',
+      )
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <Modal
+      title="Novo Questionário"
+      sub="Crie um novo instrumento. Todas as perguntas usam automaticamente a escala Likert de 1 a 5."
+      onClose={onClose}
+      maxWidth="max-w-3xl"
+      footer={
+        <div className="flex justify-end gap-2">
+          <SecondaryButton
+            onClick={onClose}
+            disabled={salvando}
+          >
+            Cancelar
+          </SecondaryButton>
+
+          <PrimaryButton
+            disabled={salvando}
+            onClick={() =>
+              document
+                .getElementById('novo-questionario-submit')
+                ?.click()
+            }
+          >
+            {salvando ? 'Criando…' : 'Criar questionário'}
+          </PrimaryButton>
+        </div>
+      }
+    >
+      <form
+        onSubmit={salvar}
+        className="p-6 grid gap-5"
+      >
+        <button
+          id="novo-questionario-submit"
+          type="submit"
+          className="hidden"
+        />
+
+        <div>
+          <label className="text-sm font-semibold text-slate-700">
+            Nome do questionário
+          </label>
+
+          <input
+            value={nome}
+            onChange={event => setNome(event.target.value)}
+            maxLength={MAX_NOME}
+            disabled={salvando}
+            placeholder="Ex.: Autoavaliação Institucional CPA 2029"
+            className="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm disabled:bg-slate-50"
+          />
+
+          <div className="mt-1 text-right text-[11px] text-slate-400">
+            {nome.length}/{MAX_NOME}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-green-100 bg-green-50/70 px-4 py-3">
+          <p className="text-sm font-semibold text-green-900">
+            Escala de resposta
+          </p>
+
+          <p className="text-xs text-green-800 mt-1">
+            Todas as perguntas serão obrigatórias e respondidas
+            na escala Likert de 1 a 5.
+          </p>
+
+          <div className="mt-3 flex gap-2">
+            {[1, 2, 3, 4, 5].map(valor => (
+              <span
+                key={valor}
+                className="w-8 h-8 rounded-lg border border-green-200 bg-white text-green-800 flex items-center justify-center text-xs font-bold"
+              >
+                {valor}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <label className="text-sm font-semibold text-slate-700">
+                Perguntas
+              </label>
+
+              <p className="text-xs text-slate-400 mt-0.5">
+                {perguntas.length} de {MAX_PERGUNTAS} perguntas
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={adicionarPergunta}
+              disabled={
+                salvando ||
+                perguntas.length >= MAX_PERGUNTAS
+              }
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:underline disabled:text-slate-300 disabled:no-underline"
+            >
+              {Icons.plus({ width: 14, height: 14 })}
+              Adicionar pergunta
+            </button>
+          </div>
+
+          {perguntas.map((pergunta, index) => (
+            <div
+              key={index}
+              className="rounded-2xl border border-slate-200 p-4"
+            >
+              <div className="flex items-start gap-3">
+                <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-1">
+                  {index + 1}
+                </span>
+
+                <div className="flex-1">
+                  <textarea
+                    value={pergunta}
+                    onChange={event =>
+                      atualizarPergunta(
+                        index,
+                        event.target.value,
+                      )
+                    }
+                    maxLength={MAX_TEXTO}
+                    disabled={salvando}
+                    rows={2}
+                    placeholder={`Digite a pergunta ${index + 1}`}
+                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm disabled:bg-slate-50"
+                  />
+
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">
+                      Resposta: escala de 1 a 5
+                    </span>
+
+                    <span className="text-[11px] text-slate-400">
+                      {pergunta.length}/{MAX_TEXTO}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removerPergunta(index)}
+                  disabled={
+                    salvando || perguntas.length === 1
+                  }
+                  aria-label={`Remover pergunta ${index + 1}`}
+                  className="w-9 h-9 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-red-600 disabled:opacity-30 flex items-center justify-center flex-shrink-0"
+                >
+                  {Icons.close({
+                    width: 16,
+                    height: 16,
+                  })}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-900">
+          O novo questionário será criado como <strong>Rascunho</strong>.
+          Revise as perguntas antes de publicá-lo e vinculá-lo a uma campanha.
+        </div>
+
+        {erro && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {erro}
+          </div>
+        )}
+      </form>
+    </Modal>
+  )
 }
 
 function EditarModal({
@@ -313,8 +617,9 @@ function EditarModal({
   )
 }
 
-export default function Questionarios({ questionarios, onDuplicate, onEdit, loading, error }: { questionarios: QuestionarioApi[]; onDuplicate: (id: string) => Promise<void>; onEdit: (id: string, input: EditarQuestionarioInput) => Promise<void>; loading: boolean; error: string | null }) {
+export default function Questionarios({ questionarios, onCreate, onDuplicate, onEdit, loading, error }: { questionarios: QuestionarioApi[]; onCreate: (input: CriarQuestionarioInput) => Promise<void>; onDuplicate: (id: string) => Promise<void>; onEdit: (id: string, input: EditarQuestionarioInput) => Promise<void>; loading: boolean; error: string | null }) {
   const [filtro, setFiltro] = useState('Todos')
+  const [novo, setNovo] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const [editando, setEditando] = useState<string | null>(null)
   const [duplicando, setDuplicando] = useState<string | null>(null)
@@ -342,8 +647,16 @@ export default function Questionarios({ questionarios, onDuplicate, onEdit, load
         <div>
           <p className="text-xs uppercase tracking-[0.16em] font-bold" style={{ color: GREEN }}>Instrumentos de avaliação</p>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">Questionários</h1>
-          <p className="text-sm text-slate-500 mt-1">Consulte e edite os questionários. Um modelo só pode ser editado enquanto não tem respostas registradas — depois disso, duplique-o pra criar uma nova versão.</p>
+          <p className="text-sm text-slate-500 mt-1">Crie, consulte e edite os questionários. Modelos com respostas registradas ficam bloqueados para preservar o histórico.</p>
         </div>
+
+        <PrimaryButton
+          onClick={() => setNovo(true)}
+          disabled={loading}
+        >
+          {Icons.plus({ width: 17, height: 17 })}
+          Novo Questionário
+        </PrimaryButton>
       </div>
       <div className="responsive-grid-3 grid grid-cols-3 gap-4 mb-5">{[
         { label:'Publicados', value:published, color:'#166534', bg:'#DCFCE7' },
@@ -363,6 +676,16 @@ export default function Questionarios({ questionarios, onDuplicate, onEdit, load
           </div>
         )}
       </Card>
+      {novo && (
+        <NovoQuestionarioModal
+          onClose={() => setNovo(false)}
+          onCreate={async input => {
+            await onCreate(input)
+            setNovo(false)
+          }}
+        />
+      )}
+
       {preview && <Preview questionarioId={preview} onClose={() => setPreview(null)} />}
       {editando && (
         <EditarModal
