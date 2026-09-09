@@ -11,6 +11,10 @@ def assert_objective_question(question: Question) -> None:
         raise ValidationError("Somente perguntas objetivas são permitidas")
     if not question.texto.strip():
         raise ValidationError("O texto da pergunta é obrigatório")
+    if len(question.texto.strip()) > 500:
+        raise ValidationError(
+            "O texto da pergunta pode ter no máximo 500 caracteres"
+        )
     if question.tipo is TipoPergunta.UNICA and not question.opcoes:
         raise ValidationError("Perguntas de escolha única precisam de opções")
 
