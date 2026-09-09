@@ -53,12 +53,12 @@ function extractErrorMessage(body: unknown, fallback: string): string {
   return fallback
 }
 
-async function fetchAuthenticated(endpoint: string, options: RequestInit, jsonBody: boolean): Promise<Response> {
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`
   const token = currentToken()
 
   const headers: Record<string, string> = {
-    ...(jsonBody ? { 'Content-Type': 'application/json' } : {}),
+    'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> | undefined),
   }
   if (token) {
@@ -91,34 +91,54 @@ async function fetchAuthenticated(endpoint: string, options: RequestInit, jsonBo
     )
   }
 
-  return response
-}
-
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetchAuthenticated(endpoint, options, true)
   if (response.status === 204) {
     return null as T
   }
   return (await response.json()) as T
 }
 
-function filenameFromContentDisposition(value: string | null): string | null {
-  if (!value) return null
-  const match = /filename="?([^";]+)"?/i.exec(value)
-  return match ? match[1] : null
-}
+async function requestBlob(endpoint: string, options: RequestInit = {}): Promise<{ blob: Blob; filename: string }> {
+  const url = `${BASE_URL}${endpoint}`
+  const token = currentToken()
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> | undefined),
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
 
-/** Baixa um arquivo autenticado (ex.: relatório) e devolve o blob pronto pra
- * salvar, junto do nome de arquivo que o backend sugeriu (Content-Disposition).
- * Não usa `apiClient.get` porque a resposta não é JSON. */
-export async function apiDownload(
-  endpoint: string,
-  options?: RequestInit,
-): Promise<{ blob: Blob; filename: string | null }> {
-  const response = await fetchAuthenticated(endpoint, { ...options, method: 'GET' }, false)
-  const blob = await response.blob()
-  const filename = filenameFromContentDisposition(response.headers.get('content-disposition'))
-  return { blob, filename }
+  let response: Response
+  try {
+    response = await fetch(url, { ...options, headers })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    throw new ApiException('Não foi possível conectar ao servidor. Tente novamente em instantes.', 0)
+  }
+
+  if (!response.ok) {
+    let body: unknown = null
+    const contentType = response.headers.get('content-type') ?? ''
+    if (contentType.includes('application/json')) {
+      try {
+        body = await response.json()
+      } catch {
+        body = null
+      }
+    }
+    const code = body && typeof body === 'object' ? (body as { code?: string }).code : undefined
+    throw new ApiException(
+      extractErrorMessage(body, response.statusText || 'Erro desconhecido na API'),
+      response.status,
+      code,
+    )
+  }
+
+  const disposition = response.headers.get('content-disposition') ?? ''
+  const match = /filename="?([^"]+)"?/i.exec(disposition)
+  return {
+    blob: await response.blob(),
+    filename: match?.[1] ?? 'relatorio',
+  }
 }
 
 export const apiClient = {
@@ -131,4 +151,6 @@ export const apiClient = {
     request<T>(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) }),
 
   delete: <T>(endpoint: string, options?: RequestInit) => request<T>(endpoint, { ...options, method: 'DELETE' }),
+
+  getBlob: (endpoint: string, options?: RequestInit) => requestBlob(endpoint, { ...options, method: 'GET' }),
 }

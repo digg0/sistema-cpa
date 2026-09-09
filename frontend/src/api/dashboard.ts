@@ -1,5 +1,5 @@
+import { mapCampanha, type CampanhaApi } from './campanhas'
 import { apiClient } from './client'
-import { isoToBr } from '../utils/date'
 
 export interface HistoricoItemApi {
   sem: string
@@ -10,6 +10,9 @@ export interface HistoricoItemApi {
 export interface ParticipacaoPerfilApi {
   perfil: string
   valor: number
+  cor: string
+  fundo: string
+  label: string
 }
 
 export interface SatisfacaoItemApi {
@@ -19,18 +22,8 @@ export interface SatisfacaoItemApi {
   cor: string
 }
 
-export interface CampanhaResumoApi {
-  id: string
-  nome: string
-  publico: string
-  inicio: string
-  fim: string
-  participacao: number
-  status: 'Ativa' | 'Agendada' | 'Encerrada'
-}
-
 export interface DashboardApi {
-  campanhas: CampanhaResumoApi[]
+  campanhas: CampanhaApi[]
   historico: HistoricoItemApi[]
   participacaoPorPerfil: ParticipacaoPerfilApi[]
   satisfacao: SatisfacaoItemApi[]
@@ -42,38 +35,49 @@ export interface DashboardApi {
 interface CampaignOut {
   id: string
   nome: string
-  publico: string
+  tipo: string
+  descricao: string
   inicio: string
   fim: string
   participacao: number
-  status: 'Ativa' | 'Agendada' | 'Encerrada'
-  [key: string]: unknown
+  respostas: number
+  publico: string
+  publico_perfis: string[]
+  questionario: string
+  questionario_id: string
+  status: CampanhaApi['status']
+  categoria: string
 }
 
 interface DashboardOut {
   campanhas: CampaignOut[]
   historico: HistoricoItemApi[]
-  participacao_por_perfil: ParticipacaoPerfilApi[]
+  participacao_por_perfil: { perfil: string; valor: number }[]
   satisfacao: SatisfacaoItemApi[]
   media_geral: number
   satisfacao_geral: number
   total_respostas: number
 }
 
+const PERFIL_ESTILO: Record<string, { cor: string; fundo: string; label: string }> = {
+  Docente: { cor: '#2A7A3B', fundo: '#EAF4EC', label: 'Docentes' },
+  Discente: { cor: '#2563EB', fundo: '#DBEAFE', label: 'Discentes' },
+  Técnico: { cor: '#7C3AED', fundo: '#EDE9FE', label: 'Técnicos' },
+}
+
+function estiloPerfil(perfil: string) {
+  return PERFIL_ESTILO[perfil] ?? { cor: '#475569', fundo: '#F1F5F9', label: perfil }
+}
+
 export async function obterDashboard(signal?: AbortSignal): Promise<DashboardApi> {
   const data = await apiClient.get<DashboardOut>('/api/v1/dashboard', { signal })
   return {
-    campanhas: data.campanhas.map(campanha => ({
-      id: campanha.id,
-      nome: campanha.nome,
-      publico: campanha.publico,
-      inicio: isoToBr(campanha.inicio),
-      fim: isoToBr(campanha.fim),
-      participacao: campanha.participacao,
-      status: campanha.status,
-    })),
+    campanhas: data.campanhas.map(mapCampanha),
     historico: data.historico,
-    participacaoPorPerfil: data.participacao_por_perfil,
+    participacaoPorPerfil: data.participacao_por_perfil.map(item => ({
+      ...item,
+      ...estiloPerfil(item.perfil),
+    })),
     satisfacao: data.satisfacao,
     mediaGeral: data.media_geral,
     satisfacaoGeral: data.satisfacao_geral,

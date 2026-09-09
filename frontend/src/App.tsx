@@ -6,8 +6,6 @@ import { ApiException } from './api/client'
 import { criarCampanha as criarCampanhaApi, listarCampanhas, type CampanhaApi, type CriarCampanhaInput } from './api/campanhas'
 import { enviarRespostas, listAvaliacoes, type Avaliacao } from './api/avaliacoes'
 import { duplicarQuestionario as duplicarQuestionarioApi, listarQuestionarios, type QuestionarioApi } from './api/questionarios'
-import { obterDashboard, type DashboardApi } from './api/dashboard'
-import { gerarRelatorio as gerarRelatorioApi, listarRelatorios, type GerarRelatorioInput, type RelatorioApi } from './api/relatorios'
 import IfceLogo from './components/IfceLogo'
 import { Icons } from './components/Icons'
 import { GREEN, GREEN_L } from './components/ui'
@@ -48,7 +46,7 @@ function Navigation({ items, active, onChange, badge, onLogout, mobile = false, 
       <nav className="flex-1 px-3 py-5 grid content-start gap-1.5" aria-label="Navegação principal">
         {items.map(item => { const selected=active===item.id; return <button key={item.id} onClick={()=>choose(item.id)} className="w-full flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm text-left transition" style={{background:selected?GREEN_L:'transparent',color:selected?'#1E5C2C':'#64748B',fontWeight:selected?700:500}}><span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{background:selected?'#DDF0E1':'#F8FAFC',color:selected?GREEN:'#94A3B8'}}>{item.icon}</span><span className="flex-1">{item.label}</span>{item.id==='minhas'&&badge!==undefined&&badge>0?<span className="min-w-6 h-6 px-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">{badge}</span>:null}</button> })}
       </nav>
-      <div className="px-3 py-4 border-t border-slate-100"><button onClick={()=>{onLogout();onClose?.()}} className="w-full flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"><span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">{Icons.logout({width:18,height:18})}</span>Sair do sistema</button>{!mobile&&<p className="text-center text-[10px] text-slate-300 mt-3">Protótipo · dados mockados</p>}</div>
+      <div className="px-3 py-4 border-t border-slate-100"><button onClick={()=>{onLogout();onClose?.()}} className="w-full flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"><span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">{Icons.logout({width:18,height:18})}</span>Sair do sistema</button>{!mobile&&<p className="text-center text-[10px] text-slate-300 mt-3">IFCE · Campus Tauá</p>}</div>
     </div>
   )
 }
@@ -74,12 +72,6 @@ export default function App() {
   const [questionarios,setQuestionarios]=useState<QuestionarioApi[]>([])
   const [questionariosLoading,setQuestionariosLoading]=useState(false)
   const [questionariosError,setQuestionariosError]=useState<string|null>(null)
-  const [relatorios,setRelatorios]=useState<RelatorioApi[]>([])
-  const [relatoriosLoading,setRelatoriosLoading]=useState(false)
-  const [relatoriosError,setRelatoriosError]=useState<string|null>(null)
-  const [dashboard,setDashboard]=useState<DashboardApi|null>(null)
-  const [dashboardLoading,setDashboardLoading]=useState(false)
-  const [dashboardError,setDashboardError]=useState<string|null>(null)
   const [abrirNovaCampanha,setAbrirNovaCampanha]=useState(false)
   const [avaliacoes,setAvaliacoes]=useState<Avaliacao[]>([])
   const [avaliacoesLoading,setAvaliacoesLoading]=useState(false)
@@ -165,40 +157,6 @@ export default function App() {
       .finally(()=>setQuestionariosLoading(false))
   },[session])
 
-  const carregarDashboard=useCallback((signal?:AbortSignal)=>{
-    if(!session || session.perfil!=='Coordenador CPA'){
-      setDashboard(null)
-      setDashboardError(null)
-      return Promise.resolve()
-    }
-    setDashboardLoading(true)
-    setDashboardError(null)
-    return obterDashboard(signal)
-      .then(setDashboard)
-      .catch(error=>{
-        if(error instanceof DOMException && error.name==='AbortError') return
-        setDashboardError(error instanceof ApiException ? error.message : 'Não foi possível carregar o painel.')
-      })
-      .finally(()=>setDashboardLoading(false))
-  },[session])
-
-  const carregarRelatorios=useCallback((signal?:AbortSignal)=>{
-    if(!session || session.perfil!=='Coordenador CPA'){
-      setRelatorios([])
-      setRelatoriosError(null)
-      return Promise.resolve()
-    }
-    setRelatoriosLoading(true)
-    setRelatoriosError(null)
-    return listarRelatorios(signal)
-      .then(setRelatorios)
-      .catch(error=>{
-        if(error instanceof DOMException && error.name==='AbortError') return
-        setRelatoriosError(error instanceof ApiException ? error.message : 'Não foi possível carregar os relatórios.')
-      })
-      .finally(()=>setRelatoriosLoading(false))
-  },[session])
-
   const carregarAvaliacoes=useCallback((signal?:AbortSignal)=>{
     if(!session || session.perfil==='Coordenador CPA'){setAvaliacoes([]);return Promise.resolve()}
     setAvaliacoesLoading(true)
@@ -223,18 +181,6 @@ export default function App() {
     carregarQuestionarios(controller.signal)
     return ()=>controller.abort()
   },[carregarQuestionarios])
-
-  useEffect(()=>{
-    const controller=new AbortController()
-    carregarDashboard(controller.signal)
-    return ()=>controller.abort()
-  },[carregarDashboard])
-
-  useEffect(()=>{
-    const controller=new AbortController()
-    carregarRelatorios(controller.signal)
-    return ()=>controller.abort()
-  },[carregarRelatorios])
 
   useEffect(()=>{
     const controller=new AbortController()
@@ -284,15 +230,6 @@ export default function App() {
     }
     await carregarQuestionarios()
   }
-  async function gerarRelatorio(input:GerarRelatorioInput){
-    try{
-      const criado=await gerarRelatorioApi(input)
-      setRelatorios(atual=>[criado,...atual])
-    }catch(error){
-      throw new Error(error instanceof ApiException ? error.message : 'Não foi possível gerar o relatório. Tente novamente.')
-    }
-  }
-
   if(checkingSession) return <SessionCheck/>
   if(!session) return <Login onLogin={login}/>
 
@@ -305,8 +242,8 @@ export default function App() {
     if(active==='campanhas') screen=<Campanhas campanhas={campanhas} onCreate={criarCampanha} loading={campanhasLoading} error={campanhasError} abrirNova={abrirNovaCampanha} onNovaAberta={()=>setAbrirNovaCampanha(false)}/>
     else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onDuplicate={duplicarQuestionario} loading={questionariosLoading} error={questionariosError}/>
     else if(active==='resultados') screen=<Resultados campanhas={campanhas}/>
-    else if(active==='relatorios') screen=<Relatorios relatorios={relatorios} historico={dashboard?.historico ?? []} loading={relatoriosLoading} error={relatoriosError} onGenerate={gerarRelatorio}/>
-    else screen=<Dashboard campanhas={campanhas} dashboard={dashboard} loading={dashboardLoading} error={dashboardError} onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
+    else if(active==='relatorios') screen=<Relatorios/>
+    else screen=<Dashboard onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
   } else {
     screen=active==='respondidas'
       ?<AvaliacoesRespondidas avaliacoes={avaliacoes} loading={avaliacoesLoading} error={avaliacoesError}/>

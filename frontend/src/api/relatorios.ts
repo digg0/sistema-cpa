@@ -1,28 +1,28 @@
-import { apiClient, apiDownload } from './client'
-import { isoToBr } from '../utils/date'
+import { apiClient } from './client'
+
+export type FormatoRelatorioApi = 'PDF' | 'CSV'
 
 export interface RelatorioApi {
   id: string
   titulo: string
   tipo: string
-  formato: 'PDF' | 'CSV'
+  formato: FormatoRelatorioApi
   autor: string
   gerado: string
-  campanhaId: string | null
+  campaignId: string | null
 }
 
-export interface GerarRelatorioInput {
+export interface CriarRelatorioInput {
   titulo: string
   tipo: string
-  formato: 'PDF' | 'CSV'
-  campanhaId?: string
+  formato: FormatoRelatorioApi
 }
 
 interface ReportOut {
   id: string
   titulo: string
   tipo: string
-  formato: 'PDF' | 'CSV'
+  formato: FormatoRelatorioApi
   autor: string
   gerado: string
   campaign_id: string | null
@@ -35,8 +35,8 @@ function mapRelatorio(data: ReportOut): RelatorioApi {
     tipo: data.tipo,
     formato: data.formato,
     autor: data.autor,
-    gerado: isoToBr(data.gerado.slice(0, 10)),
-    campanhaId: data.campaign_id,
+    gerado: data.gerado,
+    campaignId: data.campaign_id,
   }
 }
 
@@ -45,24 +45,37 @@ export async function listarRelatorios(signal?: AbortSignal): Promise<RelatorioA
   return data.map(mapRelatorio)
 }
 
-export async function gerarRelatorio(input: GerarRelatorioInput, signal?: AbortSignal): Promise<RelatorioApi> {
-  const data = await apiClient.post<ReportOut>(
+export async function criarRelatorio(
+  input: CriarRelatorioInput,
+  signal?: AbortSignal,
+): Promise<RelatorioApi> {
+  const created = await apiClient.post<ReportOut>(
     '/api/v1/relatorios',
-    { titulo: input.titulo, tipo: input.tipo, formato: input.formato, campaign_id: input.campanhaId },
+    {
+      titulo: input.titulo.trim(),
+      tipo: input.tipo,
+      formato: input.formato,
+    },
     { signal },
   )
-  return mapRelatorio(data)
+  return mapRelatorio(created)
 }
 
-/** Baixa o relatório de verdade (conteúdo real vindo do backend) e dispara o
- * download no navegador — substitui o blob fabricado no cliente que existia
- * no protótipo. */
-export async function baixarRelatorio(id: string, tituloFallback: string): Promise<void> {
-  const { blob, filename } = await apiDownload(`/api/v1/relatorios/${id}/download`)
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename ?? `${tituloFallback.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`
-  a.click()
-  URL.revokeObjectURL(url)
+export async function baixarRelatorio(
+  reportId: string,
+  signal?: AbortSignal,
+): Promise<{ blob: Blob; filename: string }> {
+  return apiClient.getBlob(`/api/v1/relatorios/${reportId}/download`, { signal })
+}
+
+export function formatarGerado(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
