@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import QRCode from 'qrcode'
 import {
   Badge,
   Card,
@@ -164,6 +165,87 @@ function NovaCampanhaModal({
   )
 }
 
+function QrCodeModal({
+  campanha,
+  onClose,
+}: {
+  campanha: CampanhaApi
+  onClose: () => void
+}) {
+  const evaluationUrl = `${window.location.origin}/avaliacoes/${campanha.id}`
+  const [imageUrl, setImageUrl] = useState('')
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    QRCode.toDataURL(evaluationUrl, { width: 320, margin: 2, errorCorrectionLevel: 'M' })
+      .then(setImageUrl)
+      .catch(() => setError('Não foi possível gerar o QR Code.'))
+  }, [evaluationUrl])
+
+  async function copyUrl() {
+    try {
+      await navigator.clipboard.writeText(evaluationUrl)
+      setCopied(true)
+    } catch {
+      setError('Não foi possível copiar automaticamente. Selecione o link abaixo.')
+    }
+  }
+
+  function download() {
+    if (!imageUrl) return
+    const link = document.createElement('a')
+    link.href = imageUrl
+    link.download = `qr-${campanha.nome.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`
+    link.click()
+  }
+
+  return (
+    <Modal
+      title="QR Code da avaliação"
+      sub={campanha.nome}
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <SecondaryButton onClick={copyUrl}>
+            {copied ? 'Link copiado' : 'Copiar link'}
+          </SecondaryButton>
+          <PrimaryButton onClick={download} disabled={!imageUrl}>
+            {Icons.download({ width: 16, height: 16 })} Baixar PNG
+          </PrimaryButton>
+        </div>
+      }
+    >
+      <div className="p-6 text-center">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={`QR Code para ${campanha.nome}`}
+            className="mx-auto w-full max-w-[280px] rounded-2xl border border-slate-200"
+          />
+        ) : (
+          <div className="mx-auto flex h-[280px] max-w-[280px] items-center justify-center rounded-2xl bg-slate-50 text-sm text-slate-400">
+            Gerando QR Code…
+          </div>
+        )}
+
+        <div className="mt-5 grid gap-2 rounded-xl bg-slate-50 p-4 text-left text-xs text-slate-600">
+          <p><strong>Período:</strong> {campanha.inicio} a {campanha.fim}</p>
+          <p><strong>Público:</strong> {campanha.publico}</p>
+          <p className="break-all"><strong>URL:</strong> {evaluationUrl}</p>
+        </div>
+
+        <p className="mt-3 text-xs text-slate-400">
+          O QR Code contém somente o endereço e o identificador da campanha.
+        </p>
+
+        {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+      </div>
+    </Modal>
+  )
+}
+
 function DetalhesModal({
   campanha,
   onClose,
@@ -175,6 +257,11 @@ function DetalhesModal({
     campanha.inicio,
     campanha.fim,
   )
+  const [showQr, setShowQr] = useState(false)
+
+  if (showQr) {
+    return <QrCodeModal campanha={campanha} onClose={() => setShowQr(false)} />
+  }
 
   return (
     <Modal
@@ -183,10 +270,13 @@ function DetalhesModal({
       onClose={onClose}
       maxWidth="max-w-xl"
       footer={
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
           <SecondaryButton onClick={onClose}>
             Fechar
           </SecondaryButton>
+          <PrimaryButton onClick={() => setShowQr(true)}>
+            Gerar QR Code
+          </PrimaryButton>
         </div>
       }
     >

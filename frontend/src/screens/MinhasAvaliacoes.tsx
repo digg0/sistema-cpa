@@ -64,7 +64,7 @@ function RespostaObjetiva({ pergunta, valor, onChange }: { pergunta: PerguntaApi
   )
 }
 
-function QuestionarioModal({ avaliacao, onClose, onConcluir }: { avaliacao: Avaliacao; onClose: () => void; onConcluir: (respostas: Record<string, string>) => Promise<void> }) {
+export function QuestionarioModal({ avaliacao, onClose, onConcluir }: { avaliacao: Avaliacao; onClose: () => void; onConcluir: (respostas: Record<string, string>) => Promise<void> }) {
   const [index, setIndex] = useState(0)
   const [respostas, setRespostas] = useState<Record<string, string>>({})
   const [confirmando, setConfirmando] = useState(false)

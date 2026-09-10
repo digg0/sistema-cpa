@@ -37,7 +37,7 @@ from modules.questionnaires.application.use_cases import (
     UpdateQuestionnaire,
 )
 from modules.questionnaires.infrastructure.repository import SqlAlchemyQuestionnaireRepository
-from modules.responses.application.use_cases import ListMyEvaluations, SubmitResponse
+from modules.responses.application.use_cases import GetEvaluation, ListMyEvaluations, SubmitResponse
 from modules.responses.infrastructure.repository import (
     SqlAlchemyParticipationRepository,
     SqlAlchemySubmissionRepository,
@@ -147,6 +147,14 @@ def get_submit_response(session: Session = Depends(get_db)):
 
 def get_list_my_evaluations(session: Session = Depends(get_db)):
     return ListMyEvaluations(
+        SqlAlchemyCampaignRepository(session),
+        SqlAlchemyQuestionnaireRepository(session),
+        SqlAlchemyParticipationRepository(session),
+    )
+
+
+def get_evaluation(session: Session = Depends(get_db)):
+    return GetEvaluation(
         SqlAlchemyCampaignRepository(session),
         SqlAlchemyQuestionnaireRepository(session),
         SqlAlchemyParticipationRepository(session),

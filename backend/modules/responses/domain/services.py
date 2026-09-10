@@ -26,6 +26,14 @@ def normalize_answer_value(question: Question, raw: str) -> str:
 
 
 def validate_answers(questions: list[Question], answers: list[Answer]) -> list[Answer]:
+    answer_ids = [answer.question_id for answer in answers]
+    if len(answer_ids) != len(set(answer_ids)):
+        raise ValidationError("Uma pergunta não pode ser respondida mais de uma vez")
+
+    valid_ids = {question.id for question in questions}
+    if any(answer_id not in valid_ids for answer_id in answer_ids):
+        raise ValidationError("Uma ou mais perguntas não pertencem a esta avaliação")
+
     by_id = {answer.question_id: answer for answer in answers}
     validated: list[Answer] = []
     for question in questions:
