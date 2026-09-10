@@ -23,6 +23,7 @@ import Campanhas from './screens/Campanhas'
 import Questionarios from './screens/Questionarios'
 import Resultados from './screens/Resultados'
 import Relatorios from './screens/Relatorios'
+import Auditoria from './screens/Auditoria'
 import MinhasAvaliacoes from './screens/MinhasAvaliacoes'
 import AvaliacoesRespondidas from './screens/AvaliacoesRespondidas'
 import { statusPorPeriodo } from './utils/date'
@@ -35,6 +36,7 @@ const adminNav: NavItem[] = [
   { id: 'questionarios', label: 'Questionários', icon: Icons.question() },
   { id: 'resultados', label: 'Resultados', icon: Icons.chart() },
   { id: 'relatorios', label: 'Relatórios', icon: Icons.report() },
+  { id: 'auditoria', label: 'Auditoria', icon: Icons.shield() },
 ]
 const participantNav: NavItem[] = [
   { id: 'minhas', label: 'Minhas Avaliações', icon: Icons.edit() },
@@ -276,6 +278,7 @@ export default function App() {
     else if(active==='questionarios') screen=<Questionarios questionarios={questionarios} onCreate={criarQuestionario} onDuplicate={duplicarQuestionario} onEdit={editarQuestionario} loading={questionariosLoading} error={questionariosError}/>
     else if(active==='resultados') screen=<Resultados campanhas={campanhas}/>
     else if(active==='relatorios') screen=<Relatorios/>
+    else if(active==='auditoria') screen=<Auditoria/>
     else screen=<Dashboard onNovaCampanha={()=>{setActive('campanhas');setAbrirNovaCampanha(true)}}/>
   } else {
     screen=active==='respondidas'
