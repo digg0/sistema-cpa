@@ -20,6 +20,14 @@ class StatusCampanha(str, Enum):
     ENCERRADA = "Encerrada"
 
 
+class StatusAcessoAvaliacao(str, Enum):
+    DISPONIVEL = "AVAILABLE"
+    AGENDADA = "SCHEDULED"
+    ENCERRADA = "CLOSED"
+    JA_RESPONDIDA = "ALREADY_ANSWERED"
+    SEM_PERGUNTAS = "NO_QUESTIONS"
+
+
 class TipoPergunta(str, Enum):
     LIKERT = "likert"
     SIMNAO = "simnao"

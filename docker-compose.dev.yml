@@ -32,6 +32,7 @@ services:
       - DATABASE_URL=postgresql+psycopg2://cpa:dev-postgres-change-me@db:5432/cpa_dev
       - SECRET_KEY=dev-secret-change-me-use-32-bytes+
       - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+      - CORS_ORIGIN_REGEX=^http://(localhost|127\.0\.0\.1|10\.[0-9]+\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]+\.[0-9]+):5173$
     depends_on:
       db:
         condition: service_healthy
@@ -47,7 +48,8 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=
+      - VITE_PROXY_TARGET=http://backend:8000
     depends_on:
       - backend
 

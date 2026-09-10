@@ -23,15 +23,20 @@ export interface AvaliacaoDisponivel {
 }
 
 export interface Campanha {
-  id: number
+  id: string
   nome: string
   tipo: string
+  descricao?: string
   inicio: string
   fim: string
   participacao: number
   respostas: number
   publico: string
+  publicoPerfis?: PerfilParticipante[]
   questionario: string
+  questionarioId?: string
+  status?: StatusCampanha
+  categoria?: string
 }
 
 export interface QuestionarioAdmin {
@@ -58,7 +63,7 @@ export interface Relatorio {
 
 export const campanhasBase: Campanha[] = [
   {
-    id: 1,
+    id: 'mock-1',
     nome: 'Avaliação Docente — ADS 2026.2',
     tipo: 'Docente',
     inicio: '01/08/2026',
@@ -69,7 +74,7 @@ export const campanhasBase: Campanha[] = [
     questionario: 'Avaliação Docente v3',
   },
   {
-    id: 2,
+    id: 'mock-2',
     nome: 'Infraestrutura — Campus Tauá',
     tipo: 'Infraestrutura',
     inicio: '05/08/2026',
@@ -80,7 +85,7 @@ export const campanhasBase: Campanha[] = [
     questionario: 'Infraestrutura v2',
   },
   {
-    id: 3,
+    id: 'mock-3',
     nome: 'Autoavaliação Docente 2026.2',
     tipo: 'Autoavaliação',
     inicio: '10/08/2026',
@@ -91,7 +96,7 @@ export const campanhasBase: Campanha[] = [
     questionario: 'Autoavaliação v1',
   },
   {
-    id: 4,
+    id: 'mock-4',
     nome: 'Serviços Administrativos 2026.1',
     tipo: 'Serviços',
     inicio: '10/06/2026',
@@ -102,7 +107,7 @@ export const campanhasBase: Campanha[] = [
     questionario: 'Serviços v1',
   },
   {
-    id: 5,
+    id: 'mock-5',
     nome: 'Avaliação Docente — ADS 2026.1',
     tipo: 'Docente',
     inicio: '01/06/2026',
@@ -113,7 +118,7 @@ export const campanhasBase: Campanha[] = [
     questionario: 'Avaliação Docente v2',
   },
   {
-    id: 6,
+    id: 'mock-6',
     nome: 'Avaliação da Biblioteca 2026.2',
     tipo: 'Biblioteca',
     inicio: '20/08/2026',
@@ -124,7 +129,7 @@ export const campanhasBase: Campanha[] = [
     questionario: 'Biblioteca v1',
   },
   {
-    id: 7,
+    id: 'mock-7',
     nome: 'Avaliação Docente — Redes 2026.2',
     tipo: 'Docente',
     inicio: '01/09/2026',

@@ -2,13 +2,14 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from modules.campaigns.application.ports import CampaignRepository
-from modules.campaigns.domain.services import assert_can_answer
+from modules.campaigns.domain.services import assert_audience_contains, assert_can_answer
 from modules.identity.domain.entities import User
 from modules.questionnaires.application.ports import QuestionnaireRepository
 from modules.responses.application.ports import ParticipationRepository, SubmissionRepository
 from modules.responses.domain.entities import Answer, Participation, Submission
 from modules.responses.domain.services import assert_not_already_participated, validate_answers
 from shared.exceptions import NotFoundError
+from shared.enums import StatusAcessoAvaliacao, StatusCampanha
 from shared.ids import new_id
 
 
@@ -81,3 +82,48 @@ class ListMyEvaluations:
                 }
             )
         return items
+
+
+class GetEvaluation:
+    def __init__(
+        self,
+        campaigns: CampaignRepository,
+        questionnaires: QuestionnaireRepository,
+        participations: ParticipationRepository,
+    ):
+        self._campaigns = campaigns
+        self._questionnaires = questionnaires
+        self._participations = participations
+
+    def execute(self, user: User, campaign_id: UUID) -> dict:
+        campaign = self._campaigns.get(campaign_id)
+        if campaign is None:
+            raise NotFoundError("Avaliação não encontrada")
+
+        assert_audience_contains(campaign.publico, user.perfil)
+        questionnaire = self._questionnaires.get(campaign.questionnaire_id)
+        participation = self._participations.get(user.id, campaign.id)
+        perguntas = [
+            question
+            for question in (questionnaire.perguntas if questionnaire else [])
+            if question.visivel_para(user.perfil)
+        ]
+
+        if participation:
+            access_status = StatusAcessoAvaliacao.JA_RESPONDIDA
+        elif campaign.status is StatusCampanha.AGENDADA:
+            access_status = StatusAcessoAvaliacao.AGENDADA
+        elif campaign.status is StatusCampanha.ENCERRADA:
+            access_status = StatusAcessoAvaliacao.ENCERRADA
+        elif not perguntas:
+            access_status = StatusAcessoAvaliacao.SEM_PERGUNTAS
+        else:
+            access_status = StatusAcessoAvaliacao.DISPONIVEL
+
+        return {
+            "campaign": campaign,
+            "questionnaire": questionnaire,
+            "perguntas": perguntas if access_status is StatusAcessoAvaliacao.DISPONIVEL else [],
+            "respondida_em": participation.submitted_at if participation else None,
+            "access_status": access_status,
+        }

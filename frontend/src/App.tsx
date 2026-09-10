@@ -26,6 +26,7 @@ import Relatorios from './screens/Relatorios'
 import Auditoria from './screens/Auditoria'
 import MinhasAvaliacoes from './screens/MinhasAvaliacoes'
 import AvaliacoesRespondidas from './screens/AvaliacoesRespondidas'
+import AvaliacaoDireta from './screens/AvaliacaoDireta'
 import { statusPorPeriodo } from './utils/date'
 
 type NavItem = { id: string; label: string; icon: ReactNode }
@@ -42,6 +43,16 @@ const participantNav: NavItem[] = [
   { id: 'minhas', label: 'Minhas Avaliações', icon: Icons.edit() },
   { id: 'respondidas', label: 'Avaliações Respondidas', icon: Icons.check() },
 ]
+
+function directCampaignId(pathname: string): string | null {
+  const match = pathname.match(/^\/avaliacoes\/([^/]+)\/?$/)
+  if (!match) return null
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return match[1]
+  }
+}
 
 function Navigation({ items, active, onChange, badge, onLogout, mobile = false, onClose }: { items: NavItem[]; active: string; onChange: (id:string)=>void; badge?:number; onLogout:()=>void; mobile?:boolean; onClose?:()=>void }) {
   function choose(id:string){ onChange(id); onClose?.() }
@@ -75,6 +86,7 @@ export default function App() {
   const [session,setSession]=useState<AuthSession|null>(()=>loadSession())
   const [checkingSession,setCheckingSession]=useState(true)
   const [active,setActive]=useState('dashboard')
+  const [pathname,setPathname]=useState(() => window.location.pathname)
   const [mobileMenu,setMobileMenu]=useState(false)
   const [campanhas,setCampanhas]=useState<CampanhaApi[]>([])
   const [campanhasLoading,setCampanhasLoading]=useState(false)
@@ -86,6 +98,12 @@ export default function App() {
   const [avaliacoes,setAvaliacoes]=useState<Avaliacao[]>([])
   const [avaliacoesLoading,setAvaliacoesLoading]=useState(false)
   const [avaliacoesError,setAvaliacoesError]=useState<string|null>(null)
+
+  useEffect(() => {
+    const onPopState = () => setPathname(window.location.pathname)
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   const logout=useCallback(()=>{
     // Best-effort: revoga o token no servidor (RF-04), mas a sessão local
@@ -267,6 +285,11 @@ export default function App() {
   }
   if(checkingSession) return <SessionCheck/>
   if(!session) return <Login onLogin={login}/>
+
+  const campaignId=directCampaignId(pathname)
+  if(campaignId){
+    return <AuthGuard session={session} onExpired={logout}><AvaliacaoDireta campaignId={campaignId} onSessionExpired={logout} onBack={()=>{window.history.pushState({},'', '/');setPathname('/');setActive(session.perfil==='Coordenador CPA'?'dashboard':'minhas')}}/></AuthGuard>
+  }
 
   const admin=session.perfil==='Coordenador CPA'
   const items=admin?adminNav:participantNav

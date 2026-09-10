@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     jwt_audience: str = "sistema-cpa-api"
     database_url: str = "sqlite:///./data/cpa.db"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:80"
+    cors_origin_regex: str | None = None
     rate_limit_enabled: bool = True
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
