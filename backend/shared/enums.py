@@ -20,6 +20,14 @@ class StatusCampanha(str, Enum):
     ENCERRADA = "Encerrada"
 
 
+class StatusAcessoAvaliacao(str, Enum):
+    DISPONIVEL = "AVAILABLE"
+    AGENDADA = "SCHEDULED"
+    ENCERRADA = "CLOSED"
+    JA_RESPONDIDA = "ALREADY_ANSWERED"
+    SEM_PERGUNTAS = "NO_QUESTIONS"
+
+
 class TipoPergunta(str, Enum):
     LIKERT = "likert"
     SIMNAO = "simnao"
@@ -47,6 +55,25 @@ PUBLICO_LABEL = {
     Perfil.DOCENTE: "Docentes",
     Perfil.TECNICO: "Técnicos",
 }
+
+# Slugs persistidos em questions.perfis_alvo (relatório CPA: Professor/Aluno/Técnico).
+PERFIL_SLUG = {
+    Perfil.DISCENTE: "discente",
+    Perfil.DOCENTE: "docente",
+    Perfil.TECNICO: "tecnico",
+}
+
+PERFIS_ALVO_TODOS = [PERFIL_SLUG[Perfil.DOCENTE], PERFIL_SLUG[Perfil.DISCENTE], PERFIL_SLUG[Perfil.TECNICO]]
+PERFIS_ALVO_DOCENTE = [PERFIL_SLUG[Perfil.DOCENTE]]
+PERFIS_ALVO_DISCENTE = [PERFIL_SLUG[Perfil.DISCENTE]]
+PERFIS_ALVO_SERVIDORES = [PERFIL_SLUG[Perfil.DOCENTE], PERFIL_SLUG[Perfil.TECNICO]]
+PERFIS_ALVO_ACADEMICOS = [PERFIL_SLUG[Perfil.DOCENTE], PERFIL_SLUG[Perfil.DISCENTE]]
+
+
+def slug_do_perfil(perfil: Perfil) -> str:
+    if perfil not in PERFIL_SLUG:
+        raise ValueError(f"Perfil sem slug de respondente: {perfil}")
+    return PERFIL_SLUG[perfil]
 
 LIKERT_LABELS = {
     5: "5 — Muito satisfeito",

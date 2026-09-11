@@ -1,5 +1,12 @@
 import type { StatusCampanha } from '../data/mock'
 
+/** Converte data ISO (`AAAA-MM-DD`, formato que a API sempre devolve) pro formato
+ * `DD/MM/AAAA` que o resto da tela (statusPorPeriodo, diasAte) já sabe interpretar. */
+export function isoToBr(iso: string): string {
+  const [ano, mes, dia] = iso.split('-')
+  return `${dia}/${mes}/${ano}`
+}
+
 export function parseBrDate(value: string) {
   const [dia, mes, ano] = value.split('/').map(Number)
   return new Date(ano, mes - 1, dia, 12, 0, 0, 0)

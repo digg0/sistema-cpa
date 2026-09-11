@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from shared.enums import PERFIS_ALVO_TODOS
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -50,6 +51,8 @@ class QuestionModel(Base):
     opcoes: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     dimensao: Mapped[str | None] = mapped_column(String(120), nullable=True)
     ordem: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # SEM RESPONDENTE no relatório CPA: o perfil ausente não entra nesta lista.
+    perfis_alvo: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=lambda: list(PERFIS_ALVO_TODOS))
 
     questionnaire: Mapped[QuestionnaireModel] = relationship(back_populates="questions")
 
@@ -126,3 +129,39 @@ class SemesterMetricModel(Base):
     semestre: Mapped[str] = mapped_column(String(16), primary_key=True)
     participacao: Mapped[float] = mapped_column(nullable=False)
     satisfacao: Mapped[float] = mapped_column(nullable=False)
+
+
+class RevokedTokenModel(Base):
+    """Denylist de tokens invalidados por logout manual (RF-04).
+
+    O JWT em si é stateless — continuaria "válido" pela assinatura até o `exp`
+    natural. Guardar o `jti` aqui é o que faz o logout ter efeito de verdade:
+    `get_current_user` rejeita qualquer token cujo `jti` apareça nesta tabela,
+    mesmo que a assinatura e o `exp` ainda estejam ok. `expires_at` é só o
+    `exp` original do token, guardado pra permitir expurgo futuro das linhas
+    de tokens que já venceriam de qualquer forma.
+    """
+
+    __tablename__ = "revoked_tokens"
+
+    jti: Mapped[str] = mapped_column(String(36), primary_key=True)
+    revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
+class AuditLogModel(Base):
+    __tablename__ = "audit_logs"
+    __table_args__ = (
+        Index("ix_audit_logs_recurso_recurso_id", "recurso", "recurso_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    # Sem FK intencionalmente: o histórico deve sobreviver à remoção do usuário.
+    ator_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    ator_perfil: Mapped[str] = mapped_column(String(32), nullable=False)
+    acao: Mapped[str] = mapped_column(String(64), nullable=False)
+    recurso: Mapped[str] = mapped_column(String(100), nullable=False)
+    recurso_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    resultado: Mapped[str] = mapped_column(String(32), nullable=False)
+    detalhes: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)

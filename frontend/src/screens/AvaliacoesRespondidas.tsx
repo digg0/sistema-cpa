@@ -1,9 +1,16 @@
 import { Card, GREEN } from '../components/ui'
 import { Icons } from '../components/Icons'
-import type { AvaliacaoDisponivel } from '../data/mock'
+import type { Avaliacao } from '../api/avaliacoes'
 
-export default function AvaliacoesRespondidas({ avaliacoes, respondidas }: { avaliacoes: AvaliacaoDisponivel[]; respondidas: Record<string, string> }) {
-  const lista = avaliacoes.filter(a => Boolean(respondidas[a.id]))
+export default function AvaliacoesRespondidas({ avaliacoes, loading, error }: { avaliacoes: Avaliacao[]; loading?: boolean; error?: string | null }) {
+  const lista = avaliacoes.filter(a => Boolean(a.respondidaEm))
+
+  if (loading) {
+    return <Card className="max-w-6xl mx-auto p-10 text-center text-sm text-slate-400">Carregando…</Card>
+  }
+  if (error) {
+    return <Card className="max-w-6xl mx-auto p-10 text-center text-sm text-red-700 bg-red-50 border-red-200">{error}</Card>
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -28,7 +35,7 @@ export default function AvaliacoesRespondidas({ avaliacoes, respondidas }: { ava
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-900">{av.titulo}</h3><span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Respondida</span></div>
                   <p className="text-sm text-slate-500 mt-1">{av.descricao}</p>
-                  <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-slate-400"><span>Concluída em {respondidas[av.id]}</span><span>{av.perguntas.length} questões objetivas</span></div>
+                  <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-slate-400"><span>Concluída em {av.respondidaEm}</span><span>{av.perguntas.length} questões objetivas</span></div>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-500">{Icons.lock({ width: 15, height: 15 })} Resposta registrada</div>
               </div>

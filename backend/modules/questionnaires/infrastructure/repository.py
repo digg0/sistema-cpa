@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from infrastructure.db.models import CampaignModel, QuestionModel, QuestionnaireModel, SubmissionModel
 from modules.questionnaires.domain.entities import Question, Questionnaire
-from shared.enums import StatusQuestionario, TipoPergunta
+from shared.enums import PERFIS_ALVO_TODOS, StatusQuestionario, TipoPergunta
 from shared.ids import as_uuid
 
 
@@ -28,6 +28,7 @@ def _to_entity(row: QuestionnaireModel, usos: int, locked: bool) -> Questionnair
                 opcoes=list(question.opcoes) if question.opcoes else None,
                 dimensao=question.dimensao,
                 ordem=question.ordem,
+                perfis_alvo=list(question.perfis_alvo or PERFIS_ALVO_TODOS),
             )
             for question in row.questions
         ],
@@ -96,10 +97,36 @@ class SqlAlchemyQuestionnaireRepository:
                         opcoes=question.opcoes,
                         dimensao=question.dimensao,
                         ordem=question.ordem,
+                        perfis_alvo=list(question.perfis_alvo or PERFIS_ALVO_TODOS),
                     )
                     for question in questionnaire.perguntas
                 ],
             )
         )
+        self._session.flush()
+        return questionnaire
+
+    def update(self, questionnaire: Questionnaire) -> Questionnaire:
+        row = self._session.get(QuestionnaireModel, str(questionnaire.id))
+        row.nome = questionnaire.nome
+        row.categoria = questionnaire.categoria
+        row.status = questionnaire.status.value
+        row.atualizado_em = questionnaire.atualizado_em
+        # Reatribuir a coleção (em vez de mutar item a item) aciona o
+        # cascade="all, delete-orphan" do relacionamento: as perguntas antigas
+        # são apagadas e substituídas pelas novas numa única operação.
+        row.questions = [
+            QuestionModel(
+                id=str(question.id),
+                texto=question.texto,
+                tipo=question.tipo.value,
+                obrigatoria=question.obrigatoria,
+                opcoes=question.opcoes,
+                dimensao=question.dimensao,
+                ordem=question.ordem,
+                perfis_alvo=list(question.perfis_alvo or PERFIS_ALVO_TODOS),
+            )
+            for question in questionnaire.perguntas
+        ]
         self._session.flush()
         return questionnaire

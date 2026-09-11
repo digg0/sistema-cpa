@@ -49,6 +49,15 @@ docker compose -f docker-compose.dev.yml down
 * Frontend: http://localhost:5173
 * Backend: http://localhost:8000
 
+##  Banco de dados
+
+O motor é **PostgreSQL** (serviço `db` nos dois `docker-compose*.yml`), criado automaticamente pelo `docker compose up`. Não é necessário instalar Postgres na máquina.
+
+* Local (dev): usuário/senha/banco fixos em `docker-compose.dev.yml` (`cpa` / `dev-postgres-change-me` / `cpa_dev`), dados persistidos no volume `pgdata_dev`.
+* Produção: credenciais vêm de `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` (ver `backend/.env.example`). **`POSTGRES_PASSWORD` não tem valor padrão** — o `docker compose up` falha de propósito se ela não estiver definida no `.env` do servidor, para não subir com senha previsível.
+* As tabelas são criadas automaticamente na primeira subida do backend; para aplicar migrações manualmente: `docker compose exec backend alembic upgrade head`.
+
+> ⚠️ Ao atualizar o `docker-compose.yml` de produção/staging, garanta que o `.env` já existente nos servidores (`/home/ubuntu/app-prod` e `/home/ubuntu/app-staging`) também tenha `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` — sem isso o próximo deploy via GitHub Actions falha no `docker compose up`.
 
 ---
 

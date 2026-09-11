@@ -9,12 +9,14 @@ from app.api.v1.deps import (
     get_generate_report,
     get_get_report,
     get_list_reports,
+    get_record_audit_log,
     require_coordenador,
 )
 from app.api.v1.presenters import report_out
 from app.api.v1.schemas.relatorios import CreateReportIn, ReportOut
 from modules.analytics.application.use_cases import GenerateReport, GetCampaignResults, GetDashboard, GetReport, ListReports
 from modules.analytics.infrastructure.exporters import build_csv, build_pdf, report_rows
+from modules.audit.application.use_cases import RecordAuditLog
 from modules.identity.domain.entities import User
 from shared.enums import FormatoRelatorio
 
@@ -34,24 +36,48 @@ def create_relatorio(
     payload: CreateReportIn,
     user: User = Depends(require_coordenador),
     use_case: GenerateReport = Depends(get_generate_report),
+    audit: RecordAuditLog = Depends(get_record_audit_log),
 ) -> ReportOut:
     created = use_case.execute(user, payload.titulo, payload.tipo, payload.formato, payload.campaign_id)
+    audit.execute(
+        ator_id=user.id,
+        ator_perfil=user.perfil.value,
+        acao="gerar",
+        recurso="relatorio",
+        recurso_id=str(created.id),
+        resultado="sucesso",
+        detalhes={
+            "tipo": created.tipo,
+            "formato": created.formato.value,
+            "campaign_id": str(created.campaign_id) if created.campaign_id else None,
+        },
+    )
     return report_out(created)
 
 
 @router.get("/{report_id}/download")
 def download_relatorio(
     report_id: UUID,
-    _: User = Depends(require_coordenador),
+    user: User = Depends(require_coordenador),
     get_report: GetReport = Depends(get_get_report),
     dashboard: GetDashboard = Depends(get_dashboard),
     results: GetCampaignResults = Depends(get_campaign_results),
+    audit: RecordAuditLog = Depends(get_record_audit_log),
 ) -> Response:
     report = get_report.execute(report_id)
     dash = dashboard.execute()
     campaign_results = results.execute(report.campaign_id) if report.campaign_id else None
     rows = report_rows(dash, campaign_results)
     filename = "".join(char if char.isascii() and char.isalnum() else "-" for char in report.titulo).strip("-").lower() or "relatorio"
+    audit.execute(
+        ator_id=user.id,
+        ator_perfil=user.perfil.value,
+        acao="baixar",
+        recurso="relatorio",
+        recurso_id=str(report_id),
+        resultado="sucesso",
+        detalhes={"formato": report.formato.value},
+    )
     if report.formato is FormatoRelatorio.CSV:
         content = build_csv(rows)
         return Response(

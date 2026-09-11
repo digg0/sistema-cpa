@@ -4,6 +4,7 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.audit import AuditRecorder
 from app.core.security import BcryptPasswordHasher, decode_access_token
 from infrastructure.db.session import get_session_factory
 from modules.analytics.application.use_cases import (
@@ -17,19 +18,26 @@ from modules.analytics.infrastructure.repository import (
     SqlAlchemyReportRepository,
     SqlAlchemySemesterMetricRepository,
 )
+from modules.audit.application.use_cases import (
+    CheckLoginRateLimit,
+    ListAuditLogs,
+    RecordAuditLog,
+)
+from modules.audit.infrastructure.repository import SqlAlchemyAuditLogRepository
 from modules.campaigns.application.use_cases import CreateCampaign, GetCampaign, ListCampaigns
 from modules.campaigns.infrastructure.repository import SqlAlchemyCampaignRepository
-from modules.identity.application.use_cases import AuthenticateUser
+from modules.identity.application.use_cases import AuthenticateUser, Logout
 from modules.identity.domain.entities import User
-from modules.identity.infrastructure.repository import SqlAlchemyUserRepository
+from modules.identity.infrastructure.repository import SqlAlchemyRevokedTokenRepository, SqlAlchemyUserRepository
 from modules.questionnaires.application.use_cases import (
     CreateQuestionnaire,
     DuplicateQuestionnaire,
     GetQuestionnaire,
     ListQuestionnaires,
+    UpdateQuestionnaire,
 )
 from modules.questionnaires.infrastructure.repository import SqlAlchemyQuestionnaireRepository
-from modules.responses.application.use_cases import ListMyEvaluations, SubmitResponse
+from modules.responses.application.use_cases import GetEvaluation, ListMyEvaluations, SubmitResponse
 from modules.responses.infrastructure.repository import (
     SqlAlchemyParticipationRepository,
     SqlAlchemySubmissionRepository,
@@ -57,14 +65,22 @@ def get_hasher() -> BcryptPasswordHasher:
     return BcryptPasswordHasher()
 
 
-def get_current_user(
+def get_token_claims(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
-    session: Session = Depends(get_db),
-) -> User:
+) -> dict:
     if credentials is None:
         raise AuthenticationError("Autenticação obrigatória")
-    payload = decode_access_token(credentials.credentials)
-    user = SqlAlchemyUserRepository(session).get_by_id(as_uuid(payload["sub"]))
+    return decode_access_token(credentials.credentials)
+
+
+def get_current_user(
+    claims: dict = Depends(get_token_claims),
+    session: Session = Depends(get_db),
+) -> User:
+    jti = claims.get("jti")
+    if jti and SqlAlchemyRevokedTokenRepository(session).is_revoked(jti):
+        raise AuthenticationError("Sessão inválida ou expirada")
+    user = SqlAlchemyUserRepository(session).get_by_id(as_uuid(claims["sub"]))
     if user is None:
         raise AuthenticationError("Sessão inválida ou expirada")
     return user
@@ -80,12 +96,20 @@ def get_authenticate_user(session: Session = Depends(get_db), hasher: BcryptPass
     return AuthenticateUser(SqlAlchemyUserRepository(session), hasher)
 
 
+def get_logout(session: Session = Depends(get_db)):
+    return Logout(SqlAlchemyRevokedTokenRepository(session))
+
+
 def get_create_questionnaire(session: Session = Depends(get_db)):
     return CreateQuestionnaire(SqlAlchemyQuestionnaireRepository(session))
 
 
 def get_duplicate_questionnaire(session: Session = Depends(get_db)):
     return DuplicateQuestionnaire(SqlAlchemyQuestionnaireRepository(session))
+
+
+def get_update_questionnaire(session: Session = Depends(get_db)):
+    return UpdateQuestionnaire(SqlAlchemyQuestionnaireRepository(session))
 
 
 def get_get_questionnaire(session: Session = Depends(get_db)):
@@ -129,6 +153,14 @@ def get_list_my_evaluations(session: Session = Depends(get_db)):
     )
 
 
+def get_evaluation(session: Session = Depends(get_db)):
+    return GetEvaluation(
+        SqlAlchemyCampaignRepository(session),
+        SqlAlchemyQuestionnaireRepository(session),
+        SqlAlchemyParticipationRepository(session),
+    )
+
+
 def get_dashboard(session: Session = Depends(get_db)):
     return GetDashboard(
         SqlAlchemyCampaignRepository(session),
@@ -157,3 +189,26 @@ def get_list_reports(session: Session = Depends(get_db)):
 
 def get_get_report(session: Session = Depends(get_db)):
     return GetReport(SqlAlchemyReportRepository(session))
+
+
+def get_audit_recorder() -> AuditRecorder:
+    return AuditRecorder()
+
+
+def get_check_login_rate_limit(session: Session = Depends(get_db)):
+    return CheckLoginRateLimit(SqlAlchemyAuditLogRepository(session))
+
+
+def get_record_audit_log(session: Session = Depends(get_db)):
+    """Registra auditoria na mesma sessão/transação da requisição em curso.
+
+    Use quando a ação já grava algo nessa sessão (criar/duplicar questionário,
+    criar campanha, gerar/baixar relatório) — o registro de auditoria confirma
+    junto com a ação, na mesma transação. Para eventos sem escrita associada
+    na sessão principal (login), use `get_audit_recorder` (`AuditRecorder`).
+    """
+    return RecordAuditLog(SqlAlchemyAuditLogRepository(session))
+
+
+def get_list_audit_logs(session: Session = Depends(get_db)):
+    return ListAuditLogs(SqlAlchemyAuditLogRepository(session))

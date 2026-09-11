@@ -23,4 +23,5 @@ def dashboard(
         media_geral=data["media_geral"],
         satisfacao_geral=data["satisfacao_geral"],
         total_respostas=data["total_respostas"],
+        dados_insuficientes=data["dados_insuficientes"],
     )

@@ -22,6 +22,7 @@ hasher = BcryptPasswordHasher()
 def app_client(tmp_path, monkeypatch) -> Iterator[TestClient]:
     db_path = tmp_path / "cpa-test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
     get_settings.cache_clear()
     reset_engine()
     engine = get_engine()
@@ -45,7 +46,7 @@ def _seed_minimal(session: Session) -> None:
     coordenador = UserModel(
         id=str(new_id()),
         nome="Coordenação CPA",
-        identificador=normalize_identificador("789.012.345-00"),
+        identificador=normalize_identificador("coordenacao.cpa@ifce.edu.br"),
         senha_hash=hasher.hash("admin123"),
         perfil=Perfil.COORDENADOR_CPA.value,
     )
@@ -59,7 +60,7 @@ def _seed_minimal(session: Session) -> None:
     docente = UserModel(
         id=str(new_id()),
         nome="Prof. Ana Beatriz",
-        identificador=normalize_identificador("123.456.789-00"),
+        identificador=normalize_identificador("ana.beatriz@ifce.edu.br"),
         senha_hash=hasher.hash("123456"),
         perfil=Perfil.DOCENTE.value,
     )

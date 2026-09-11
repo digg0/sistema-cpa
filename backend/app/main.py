@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.config import get_settings
 from app.core.exceptions import register_exception_handlers
+from app.core.rate_limit import GlobalRateLimitMiddleware
+from app.core.security_headers import SecurityHeadersMiddleware
 from infrastructure.db.session import init_database
 
 
@@ -17,15 +19,22 @@ async def lifespan(_app: FastAPI):
 
 def create_app(*, initialize: bool = True) -> FastAPI:
     settings = get_settings()
+    is_production = settings.environment == "production"
     application = FastAPI(
         title="Sistema CPA",
         description="API da Comissão Própria de Avaliação — IFCE Campus Tauá",
         version="1.0.0",
         lifespan=lifespan if initialize else None,
+        docs_url=None if is_production else "/docs",
+        redoc_url=None if is_production else "/redoc",
+        openapi_url=None if is_production else "/openapi.json",
     )
+    application.add_middleware(GlobalRateLimitMiddleware)
+    application.add_middleware(SecurityHeadersMiddleware)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
+        allow_origin_regex=settings.cors_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

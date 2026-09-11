@@ -5,10 +5,12 @@ from modules.identity.domain.entities import User
 from modules.questionnaires.application.ports import QuestionnaireRepository
 from modules.questionnaires.domain.entities import Question, Questionnaire
 from modules.questionnaires.domain.services import (
+    assert_can_mutate,
     assert_objective_question,
+    assert_valid_perfis_alvo,
     default_likert_questions,
 )
-from shared.enums import StatusQuestionario, TipoPergunta
+from shared.enums import PERFIS_ALVO_TODOS, StatusQuestionario, TipoPergunta
 from shared.exceptions import NotFoundError, ValidationError
 from shared.ids import new_id
 
@@ -21,25 +23,34 @@ class QuestionDraft:
         obrigatoria: bool = True,
         opcoes: list[str] | None = None,
         dimensao: str | None = None,
+        perfis_alvo: list[str] | None = None,
     ):
         self.texto = texto
         self.tipo = tipo
         self.obrigatoria = obrigatoria
         self.opcoes = opcoes
         self.dimensao = dimensao
+        # `None` = não informado -> aplica o padrão (todos os perfis). Uma lista vazia
+        # explícita, por outro lado, é preservada como está para ser rejeitada por
+        # `assert_valid_perfis_alvo` — não deve ser silenciosamente trocada pelo padrão.
+        self.perfis_alvo = list(perfis_alvo) if perfis_alvo is not None else list(PERFIS_ALVO_TODOS)
 
 
 def _build_questions(drafts: list[QuestionDraft] | None, quantidade: int | None) -> list[Question]:
+    if drafts and len(drafts) > 50:
+        raise ValidationError("O questionário pode ter no máximo 50 perguntas")
+
     if drafts:
         questions = [
             Question(
                 id=new_id(),
-                texto=draft.texto,
+                texto=draft.texto.strip(),
                 tipo=draft.tipo,
                 obrigatoria=draft.obrigatoria,
                 opcoes=draft.opcoes,
                 dimensao=draft.dimensao,
                 ordem=index + 1,
+                perfis_alvo=list(draft.perfis_alvo),
             )
             for index, draft in enumerate(drafts)
         ]
@@ -60,6 +71,17 @@ def _build_questions(drafts: list[QuestionDraft] | None, quantidade: int | None)
 
     for question in questions:
         assert_objective_question(question)
+        assert_valid_perfis_alvo(question)
+
+    textos_normalizados = [
+        " ".join(question.texto.split()).casefold()
+        for question in questions
+    ]
+    if len(set(textos_normalizados)) != len(textos_normalizados):
+        raise ValidationError(
+            "Não são permitidas perguntas duplicadas no mesmo questionário"
+        )
+
     return questions
 
 
@@ -76,11 +98,17 @@ class CreateQuestionnaire:
         perguntas: list[QuestionDraft] | None = None,
         quantidade_perguntas: int | None = None,
     ) -> Questionnaire:
-        if not nome.strip():
+        nome_limpo = nome.strip()
+        if not nome_limpo:
             raise ValidationError("O nome do questionário é obrigatório")
+        if len(nome_limpo) > 150:
+            raise ValidationError(
+                "O nome do questionário pode ter no máximo 150 caracteres"
+            )
+
         questionnaire = Questionnaire(
             id=new_id(),
-            nome=nome.strip(),
+            nome=nome_limpo,
             categoria=categoria,
             versao=1,
             status=status,
@@ -118,11 +146,57 @@ class DuplicateQuestionnaire:
                     opcoes=list(question.opcoes) if question.opcoes else None,
                     dimensao=question.dimensao,
                     ordem=question.ordem,
+                    perfis_alvo=list(question.perfis_alvo),
                 )
                 for question in original.perguntas
             ],
         )
         return self._questionnaires.add(copy)
+
+
+class UpdateQuestionnaire:
+    """Edita nome, categoria, status e perguntas de um questionário existente.
+
+    Só é permitido enquanto o questionário não tem respostas registradas
+    (`assert_can_mutate` — mesma trava usada em outros lugares do domínio).
+    Um questionário publicado e já respondido não pode ser editado
+    destrutivamente, porque isso mudaria o instrumento de medida por trás de
+    campanhas já encerradas, quebrando a comparabilidade histórica entre
+    ciclos; o caminho correto nesse caso é duplicar (`DuplicateQuestionnaire`)
+    e publicar a cópia como uma nova versão.
+    """
+
+    def __init__(self, questionnaires: QuestionnaireRepository):
+        self._questionnaires = questionnaires
+
+    def execute(
+        self,
+        questionnaire_id: UUID,
+        nome: str,
+        categoria: str,
+        status: StatusQuestionario,
+        perguntas: list[QuestionDraft],
+    ) -> Questionnaire:
+        original = self._questionnaires.get(questionnaire_id)
+        if original is None:
+            raise NotFoundError("Questionário não encontrado")
+        assert_can_mutate(original)
+
+        if not nome.strip():
+            raise ValidationError("O nome do questionário é obrigatório")
+
+        updated = Questionnaire(
+            id=original.id,
+            nome=nome.strip(),
+            categoria=categoria,
+            versao=original.versao,
+            status=status,
+            criador_id=original.criador_id,
+            criador_nome=original.criador_nome,
+            atualizado_em=datetime.now(timezone.utc),
+            perguntas=_build_questions(perguntas, None),
+        )
+        return self._questionnaires.update(updated)
 
 
 class GetQuestionnaire:

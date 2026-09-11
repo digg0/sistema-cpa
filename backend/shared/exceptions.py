@@ -25,6 +25,17 @@ class AuthenticationError(DomainError):
         super().__init__(message, "unauthenticated")
 
 
+class TooManyRequestsError(DomainError):
+    def __init__(
+        self,
+        message: str = "Muitas tentativas de login. Tente novamente mais tarde",
+        *,
+        retry_after: int,
+    ):
+        super().__init__(message, "too_many_requests")
+        self.retry_after = retry_after
+
+
 class ValidationError(DomainError):
     def __init__(self, message: str = "Dados inválidos"):
         super().__init__(message, "validation_error")
